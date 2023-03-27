@@ -51,7 +51,7 @@ def test_main():
     # Ensure Spark is initialized before any tests are run
     # the import statement is inside the function so that the outer file
     # can be imported even where pyspark may not be available
-    from atc.spark import Spark
+    from spetlr.spark import Spark
 
     Spark.get()
 

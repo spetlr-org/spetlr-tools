@@ -2,7 +2,7 @@ import json
 
 import pyspark.sql.functions as f
 import pyspark.sql.types as t
-from atc.spark import Spark
+from spetlr.spark import Spark
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.types import StructType
 

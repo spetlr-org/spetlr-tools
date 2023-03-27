@@ -1,6 +1,6 @@
 from typing import List, Union
 
-from atc.tables.TableHandle import TableHandle
+from spetlr.tables.TableHandle import TableHandle
 from pyspark.sql import DataFrame
 
 

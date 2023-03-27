@@ -1,5 +1,5 @@
 """
-Replace whatever version is in atc/__init__.py
+Replace whatever version is in src/__init__.py
 with a version that is larger than whatever is already published on test.pypi.org
 This facilitates continuous release.
 """

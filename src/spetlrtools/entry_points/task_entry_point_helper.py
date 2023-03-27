@@ -1,6 +1,6 @@
 from typing import List
 
-from atc.entry_points import TaskEntryPoint
+from spetlr.entry_points import TaskEntryPoint
 
 from spetlrtools.helpers import ModuleHelper
 

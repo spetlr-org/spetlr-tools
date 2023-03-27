@@ -10,7 +10,7 @@ The algorithm is simple, where the following must hold:
 
 ``` python
 from pyspark.sql.types import StructType, StructField, StringType
-from atc.spark import Spark
+from speltr.spark import Spark
 from spetlrtools.format.validate_camelcased_cols import validate_camelcased_cols
 data1 = [
     (None,),
@@ -278,7 +278,7 @@ Consider the following project:
 The module `dataplatform.foo.main` has:
 
 ```python
-from atc.entry_points import TaskEntryPoint
+from speltr.entry_points import TaskEntryPoint
 
 class First(TaskEntryPoint):
     @classmethod
@@ -289,7 +289,7 @@ class First(TaskEntryPoint):
 And the module `dataplatform.bar.sub` has:
 
 ```python
-from atc.entry_points import TaskEntryPoint
+from speltr.entry_points import TaskEntryPoint
 
 class Second(TaskEntryPoint):
     @classmethod
@@ -345,7 +345,7 @@ workflow depends on this.
 
 ### Example - Using the `get_all_task_entry_points()` method with a different base class
 
-The `get_all_task_entry_points()` method is tied closely with the atc-dataplatform 
+The `get_all_task_entry_points()` method is tied closely with spetlr 
 `TaskEntryPoint` class. If there is a use case for implementing other custom base 
 classes (with a `task()` abstract class method) then a `entry_point_objects` list 
 variable can be set to look for a different base classes. See below example:

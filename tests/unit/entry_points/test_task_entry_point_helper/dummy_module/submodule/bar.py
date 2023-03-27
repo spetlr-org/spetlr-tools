@@ -1,4 +1,4 @@
-from atc.entry_points import TaskEntryPoint
+from spetlr.entry_points import TaskEntryPoint
 
 
 class B(TaskEntryPoint):
