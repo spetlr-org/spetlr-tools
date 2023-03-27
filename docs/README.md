@@ -8,7 +8,7 @@ doing this is to specify the exact version of all dependencies in a
 `requirements.txt`, for example:
 
 ```
-atc-dataplatform==0.5.2
+spetlr==0.5.2
 ```
 
 At the same time it is good to run at the latest patched version of all 
@@ -84,7 +84,7 @@ and with the newly generated token.
 
 # Test Job submission
 
-The command `atc_test_job` can be used to run unit-test on a databricks cluster.
+The command `spetlr-test-job` can be used to run unit-test on a databricks cluster.
 The command can submit a single job run, but additionally:
 
  - your unittests folder is archived and sent to databricks so that tests can be run 

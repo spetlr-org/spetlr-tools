@@ -1,7 +1,6 @@
 import json
 import unittest
 
-from atc.spark import Spark
 from pyspark.sql.types import (
     BinaryType,
     BooleanType,
@@ -12,6 +11,7 @@ from pyspark.sql.types import (
     StructField,
     StructType,
 )
+from spetlr.spark import Spark
 
 from spetlrtools.helpers.ExtractEncodedBody import ExtractEncodedBody
 
