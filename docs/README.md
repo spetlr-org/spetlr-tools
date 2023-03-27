@@ -8,7 +8,7 @@ doing this is to specify the exact version of all dependencies in a
 `requirements.txt`, for example:
 
 ```
-atc-dataplatform==0.5.2
+spetlr==0.5.2
 ```
 
 At the same time it is good to run at the latest patched version of all 

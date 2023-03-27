@@ -254,7 +254,9 @@ The above returns:
 ## TaskEntryPointHelper
 
 The `TaskEntryPointHelper` provides the method `get_all_task_entry_points()`, which 
-uses the ModuleHelper (see the documentation above) to retrieve all `task()` methods of the subclasses of the class `TaskEntryPoint`. Note that `TaskEntryPoint` is an abstract base class from atc-dataplatform, see the documentation over there.
+uses the ModuleHelper (see the documentation above) to retrieve all `task()` methods 
+of the subclasses of the class `TaskEntryPoint`. Note that `TaskEntryPoint` is an 
+abstract base class from spetlr, see the documentation over there.
 
 ### Example - `get_all_task_entry_points()` method
 
