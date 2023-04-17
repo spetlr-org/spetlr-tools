@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Any, List, Union
 
 from pyspark.sql import DataFrame
 from spetlr.tables.TableHandle import TableHandle
@@ -14,6 +14,9 @@ class TestHandle(TableHandle):
         self.dropped_and_deleted = False
         self.upserted = None
         self.upserted_join_cols = None
+        self.comparison_col = None
+        self.comparison_limit = None
+        self.comparison_operator = None
 
     def read(self) -> DataFrame:
         if self.provides is not None:
@@ -39,3 +42,10 @@ class TestHandle(TableHandle):
     def upsert(self, df: DataFrame, join_cols: List[str]) -> Union[DataFrame, None]:
         self.upserted = df
         self.upserted_join_cols = join_cols
+
+    def delete_data(
+        self, comparison_col: str, comparison_limit: Any, comparison_operator: str
+    ) -> None:
+        self.comparison_col = comparison_col
+        self.comparison_limit = comparison_limit
+        self.comparison_operator = comparison_operator
