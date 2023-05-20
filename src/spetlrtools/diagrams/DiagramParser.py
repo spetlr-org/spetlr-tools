@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 from itertools import chain
 from typing import Dict, List, Optional
+from urllib.parse import unquote
 
 from spetlrtools.diagrams.Edge import Edge
 from spetlrtools.diagrams.HTMLStripper import HTMLStripper
@@ -49,10 +50,32 @@ class DiagramParser:
         self.edges: List[DiagramEdge] = []
         self.nodes: Dict[str, DiagramNode] = {}
 
+    def _get_contents(self, path: str):
+        if path.endswith("png"):
+            try:
+                from PIL import Image
+            except ImportError:
+                raise Exception("You need to install 'pillow' to work with png files.")
+
+            im = Image.open(path)
+            im.load()
+
+            return unquote(im.info["mxfile"])
+        elif path.endswith(".svg"):
+            with open(path, "r", encoding="utf-8") as f:
+                conts = f.read()
+                svg = ET.fromstring(conts)
+
+            return svg.attrib["content"]
+        else:
+            # both .drawio and .xml fall into this case
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+
     def parse(self):
-        with open(self.path, "r", encoding="utf-8") as f:
-            conts = f.read()
-            diagram = ET.fromstring(conts)
+        conts = self._get_contents(self.path)
+        diagram = ET.fromstring(conts)
+
         _edges = []
 
         for cell in chain(diagram.iter("mxCell"), diagram.iter("object")):
