@@ -1,4 +1,6 @@
+import base64
 import xml.etree.ElementTree as ET
+import zlib
 from itertools import chain
 from typing import Dict, List, Optional
 from urllib.parse import unquote
@@ -59,8 +61,8 @@ class DiagramParser:
 
             im = Image.open(path)
             im.load()
-
-            return unquote(im.info["mxfile"])
+            conts = unquote(im.info["mxfile"])
+            return conts
         elif path.endswith(".svg"):
             with open(path, "r", encoding="utf-8") as f:
                 conts = f.read()
@@ -72,13 +74,27 @@ class DiagramParser:
             with open(path, "r", encoding="utf-8") as f:
                 return f.read()
 
+    def _deflate_nodes(self, et:ET)->ET:
+
+        for diagram in et.iter('diagram'):
+            if (len(diagram)):
+                # d has nested xml nodes
+                continue
+            b64 = base64.b64decode(diagram.text)
+            full = unquote(zlib.decompress(b64, -15).decode('utf-8'))
+            diagram.text = ""
+            diagram.insert(0, ET.fromstring(full))
+        return et
+
     def parse(self):
         conts = self._get_contents(self.path)
-        diagram = ET.fromstring(conts)
+        et = ET.fromstring(conts)
+        et = self._deflate_nodes(et)
+
 
         _edges = []
 
-        for cell in chain(diagram.iter("mxCell"), diagram.iter("object")):
+        for cell in chain(et.iter("mxCell"), et.iter("object")):
             try:
                 node = DiagramNode(cell.attrib)
             except KeyError:
