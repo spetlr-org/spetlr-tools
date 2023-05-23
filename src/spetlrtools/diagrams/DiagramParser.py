@@ -74,14 +74,13 @@ class DiagramParser:
             with open(path, "r", encoding="utf-8") as f:
                 return f.read()
 
-    def _deflate_nodes(self, et:ET)->ET:
-
-        for diagram in et.iter('diagram'):
-            if (len(diagram)):
+    def _deflate_nodes(self, et: ET) -> ET:
+        for diagram in et.iter("diagram"):
+            if len(diagram):
                 # d has nested xml nodes
                 continue
             b64 = base64.b64decode(diagram.text)
-            full = unquote(zlib.decompress(b64, -15).decode('utf-8'))
+            full = unquote(zlib.decompress(b64, -15).decode("utf-8"))
             diagram.text = ""
             diagram.insert(0, ET.fromstring(full))
         return et
@@ -90,7 +89,6 @@ class DiagramParser:
         conts = self._get_contents(self.path)
         et = ET.fromstring(conts)
         et = self._deflate_nodes(et)
-
 
         _edges = []
 

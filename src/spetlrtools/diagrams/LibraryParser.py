@@ -1,6 +1,4 @@
-import importlib
-import inspect
-import pkgutil
+import os
 import re
 from textwrap import dedent
 
@@ -9,72 +7,77 @@ import yaml
 from spetlrtools.diagrams.Edge import Edge
 
 
+class DiagramDefinitionError(Exception):
+    pass
+
+
 class LibraryParser:
     yaml_block_start_tag = "```spetlr diagram"
     yaml_block_end_tag = "```"
 
-    def __init__(self, package_name):
-        self.package_name = package_name
+    def _get_all_blocks(self):
+        pattern = re.compile(
+            f"(?<={self.yaml_block_start_tag})"  # lookbehind assertion
+            ".*?"  # any code whatsoever, but never include the end tag.
+            f"(?={self.yaml_block_end_tag})",  # lookahead assertion
+            flags=re.DOTALL,
+        )
+        for root, dirs, files in os.walk(self.package_path):
+            for file in files:
+                if file.endswith(".py"):
+                    file_path = os.path.join(root, file)
+                    with open(file_path, encoding="utf-8") as f:
+                        for match in pattern.findall(f.read()):
+                            yield file_path, str(match)
 
-    def import_submodules(self, package_name):
-        package = importlib.import_module(package_name)
+    def __init__(self, package_path: str):
+        self.package_path = package_path
 
-        results = {}
-        for loader, name, is_pkg in pkgutil.walk_packages(package.__path__):
-            if "." in name:
-                # I experienced unexpected package names popping up here that were not in
-                # my code module.
+    def _build_config(self):
+        config = {}
+        for file_path, block in self._get_all_blocks():
+            try:
+                obj = yaml.safe_load(dedent(block))
+            except yaml.YAMLError:
+                print(f"WARNING: Skipping unparsable yaml in {file_path}")
                 continue
-            full_name = package.__name__ + "." + name
-            results[full_name] = importlib.import_module(full_name)
-            if is_pkg:
-                results.update(self.import_submodules(full_name))
-        return results
+            if not isinstance(obj, dict):
+                print(f"WARNING: block in {file_path} is not a dict")
+                continue
+            for key, node in obj.items():
+                try:
+                    _ = node["name"]
+                except KeyError:
+                    print(f"WARNING: Missing name in node {key} of {file_path}")
+                    continue
 
-    def get_class_docstrings_in_module(self):
-        modules = self.import_submodules(self.package_name)
-        for mod_name, mod in modules.items():
-            for name, obj in inspect.getmembers(mod):
-                if inspect.isclass(obj):
-                    if not str(obj.__module__).startswith(mod.__name__):
-                        continue
-                    name = f"{mod_name}.{name}"
-                    doc = obj.__doc__
-                    if not doc:
-                        continue
-                    yield name, doc
+                if key in config:
+                    if config[key] != node:
+                        raise DiagramDefinitionError(
+                            f"Node {key} conflicts with earlier definitions"
+                        )
+                config[key] = node
+        return config
 
     def get_relations(self):
         """Returns all edges as a tuple of (source, target, style)"""
-        for name, doc in self.get_class_docstrings_in_module():
-            for match in re.findall(
-                f"(?<={self.yaml_block_start_tag})"  # lookbehind assertion
-                ".*?"  # any code whatsoever, but never include the end tag.
-                f"(?={self.yaml_block_end_tag})",  # lookahead assertion
-                doc,
-                flags=re.DOTALL,
-            ):
-                try:
-                    obj = yaml.safe_load(dedent(str(match)))
-                except yaml.YAMLError:
-                    print(f"WARNING: Skipping unparsable yaml in docstring of {name}")
-                    continue
-                if not isinstance(obj, dict):
-                    print(f"WARNING: in docstring of {name} is not a dict")
-                    continue
-                for key, node in obj.items():
-                    try:
-                        nodename = node["name"]
-                    except KeyError:
-                        print(f"WARNING: Missing name in node {key} of {name}")
-                        continue
-                    for source in node.get("incoming", []):
-                        if isinstance(source, str):
-                            yield Edge(source, nodename)
-                        else:
-                            raise NotImplementedError("styles not supported yet")
-                    for target in node.get("outgoing", []):
-                        if isinstance(target, str):
-                            yield Edge(nodename, target)
-                        else:
-                            raise NotImplementedError("styles not supported yet")
+        config = self._build_config()
+
+        def resolve_name(key):
+            if key in config:
+                return config[key]["name"]
+            else:
+                return key
+
+        for key, node in config.items():
+            nodename = node["name"]  # presenece already ensured.
+            for source in node.get("incoming", []):
+                if isinstance(source, str):
+                    yield Edge(resolve_name(source), nodename)
+                else:
+                    raise NotImplementedError("styles not supported yet")
+            for target in node.get("outgoing", []):
+                if isinstance(target, str):
+                    yield Edge(nodename, resolve_name(target))
+                else:
+                    raise NotImplementedError("styles not supported yet")
