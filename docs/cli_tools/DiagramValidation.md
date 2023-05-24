@@ -64,6 +64,13 @@ Currently only drawio (aka diagram.net) is supported. Supported file types are
 - editable `.png`
 - editable `.svg`
 
+Please note that you will need the python library `pillow` if you want to work with 
+`png` files. It is a heavy dependency and not included by default. You can install 
+it by running
+```
+pip install pillow
+```
+
 ### Syntax for markup
 All files in the given directory are searched for occurrences of the start and stop 
 tags. Lines between the tags must be valid YAML. In python files, it is expected 
