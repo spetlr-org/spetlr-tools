@@ -42,7 +42,7 @@ that connect any two entities that are connected with a line, registering a
 source to target connection for each line. The type of symbol, or style of line are 
 irrelevant. Suppose you have a diagram as in the following example.
 
-![diagram_eample.png](diagram_eample.png)
+![diagram_example.png](diagram_example.png)
 
 You can now run
 ```powershell
