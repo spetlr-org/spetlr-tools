@@ -1,6 +1,7 @@
 import os
 import re
 from textwrap import dedent
+from typing import List
 
 import yaml
 
@@ -11,12 +12,20 @@ class DiagramDefinitionError(Exception):
     pass
 
 
-class LibraryParser:
+class DiagramMarkupLibraryParser:
+    """Go through a library of files, look for tagged blocks
+    and extract the configuration. Based on the configuration,
+    return the desired set of diagram edges."""
+
     yaml_block_start_tag = "```diagram"
     yaml_block_end_tag = "```"
     include_files = ".py$"
 
+    def __init__(self, package_path: str):
+        self.package_path = package_path
+
     def _get_all_blocks(self):
+        """generator to get all blocks of code enclosed by tags"""
         pattern = re.compile(
             f"(?<={self.yaml_block_start_tag})"  # lookbehind assertion
             ".*?"  # any code whatsoever, but never include the end tag.
@@ -33,10 +42,9 @@ class LibraryParser:
                         for match in pattern.findall(f.read()):
                             yield file_path, str(match)
 
-    def __init__(self, package_path: str):
-        self.package_path = package_path
-
     def _build_config(self):
+        """Parse all the code blocks to build the aggregated
+        YAML configuration across the library"""
         config = {}
         for file_path, block in self._get_all_blocks():
             try:
@@ -54,7 +62,6 @@ class LibraryParser:
                     print(f"WARNING: Missing name in node {key} of {file_path}")
                     continue
 
-                print(config)
                 if key in config:
                     if config[key] != node:
                         raise DiagramDefinitionError(
@@ -62,11 +69,10 @@ class LibraryParser:
                             "conflicts with earlier definitions"
                         )
                 config[key] = node
-        print (config)
         return config
 
-    def get_relations(self):
-        """Returns all edges as a tuple of (source, target, style)"""
+    def get_relations(self) -> List[Edge]:
+        """Returns all edges as requested in the library configuration."""
         config = self._build_config()
 
         def resolve_name(key):
@@ -79,11 +85,13 @@ class LibraryParser:
             nodename = node["name"]  # presenece already ensured.
             for source in node.get("incoming", []):
                 if isinstance(source, str):
+                    # incoming edges go *to* the nodename
                     yield Edge(resolve_name(source), nodename)
                 else:
                     raise NotImplementedError("styles not supported yet")
             for target in node.get("outgoing", []):
                 if isinstance(target, str):
+                    # outgoing edges go *from* the nodename
                     yield Edge(nodename, resolve_name(target))
                 else:
                     raise NotImplementedError("styles not supported yet")

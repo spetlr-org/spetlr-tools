@@ -10,19 +10,22 @@ from spetlrtools.diagrams.HTMLStripper import HTMLStripper
 
 
 class DiagramNode:
+    """A node in a drawio diagram"""
+
     def __init__(self, details):
         self.id = details["id"]
+        self.label = ""
         for key in ["value", "label"]:
             try:
                 self.label = HTMLStripper.strip(details[key])
                 break
             except KeyError:
                 continue
-        else:
-            self.label = ""
 
 
 class DiagramEdge(DiagramNode):
+    """An edge linking two diagram nodes, using diagram specific identifiers."""
+
     def __init__(self, details):
         super().__init__(details)
 
@@ -46,13 +49,16 @@ class DiagramEdge(DiagramNode):
         return Edge(self.source_label, self.target_label)
 
 
-class DiagramParser:
+class DrawioDiagramParser:
+    """This class parses the diagram and returns all found edges."""
+
     def __init__(self, path):
         self.path = path
         self.edges: List[DiagramEdge] = []
         self.nodes: Dict[str, DiagramNode] = {}
 
     def _get_contents(self, path: str):
+        """Get the raw document contents even for 'editable png' and 'editable svg'."""
         if path.endswith("png"):
             try:
                 from PIL import Image
@@ -75,6 +81,7 @@ class DiagramParser:
                 return f.read()
 
     def _deflate_nodes(self, et: ET) -> ET:
+        """If the diagram is saved as compressed, decompress it."""
         for diagram in et.iter("diagram"):
             if len(diagram):
                 # d has nested xml nodes
@@ -85,7 +92,8 @@ class DiagramParser:
             diagram.insert(0, ET.fromstring(full))
         return et
 
-    def parse(self):
+    def parse(self) -> List[DiagramEdge]:
+        """Read the diagram and return the edges."""
         conts = self._get_contents(self.path)
         et = ET.fromstring(conts)
         et = self._deflate_nodes(et)
