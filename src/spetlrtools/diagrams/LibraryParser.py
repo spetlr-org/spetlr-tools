@@ -12,8 +12,9 @@ class DiagramDefinitionError(Exception):
 
 
 class LibraryParser:
-    yaml_block_start_tag = "```spetlr diagram"
+    yaml_block_start_tag = "```diagram"
     yaml_block_end_tag = "```"
+    include_files = ".py$"
 
     def _get_all_blocks(self):
         pattern = re.compile(
@@ -24,9 +25,11 @@ class LibraryParser:
         )
         for root, dirs, files in os.walk(self.package_path):
             for file in files:
-                if file.endswith(".py"):
+                if re.search(self.include_files, file):
                     file_path = os.path.join(root, file)
                     with open(file_path, encoding="utf-8") as f:
+                        # match the tag sequence absolutely anywhere in the file
+                        # this is usually in docstrings.
                         for match in pattern.findall(f.read()):
                             yield file_path, str(match)
 
@@ -51,12 +54,15 @@ class LibraryParser:
                     print(f"WARNING: Missing name in node {key} of {file_path}")
                     continue
 
+                print(config)
                 if key in config:
                     if config[key] != node:
                         raise DiagramDefinitionError(
-                            f"Node {key} conflicts with earlier definitions"
+                            f"Node {key} in {file_path} "
+                            "conflicts with earlier definitions"
                         )
                 config[key] = node
+        print (config)
         return config
 
     def get_relations(self):
