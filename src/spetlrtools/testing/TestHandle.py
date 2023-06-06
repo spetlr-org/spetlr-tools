@@ -5,6 +5,8 @@ from spetlr.tables.TableHandle import TableHandle
 
 
 class TestHandle(TableHandle):
+    __test__ = False  # solves PytestCollectionWarning
+
     def __init__(self, provides: DataFrame = None):
         self.provides = provides
         self.overwritten = None
