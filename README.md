@@ -1,35 +1,36 @@
 # spetlr-tools
-This library is a set of tools for working with Databricks Lakehouses.
-These libraries contain test fixtures and development tools 
-that are not part of the runtime tools in [SPETLR](https://github.com/spetlr-org/spetlr).
+
+## Description
+SPETLR-tools is a library that provides a set of tools for working with Databricks Lakehouses. These tools include test fixtures and development utilities that are not part of the runtime tools in [SPETLR](https://github.com/spetlr-org/spetlr).
 
 
-Visit SPETLR official webpage: [https://spetlr.com/](https://spetlr.com/)
+Visit the official SPETLR webpage: [https://spetlr.com/](https://spetlr.com/)
 
 
-## What is the purpose of SPETLR-tools?
+## Purpose of SPETLR-tools
 
-Support SPETLR in scenarious like:
+SPETLR-tools is designed to support SPETLR in various scenarios, including:
 
-* Test tools in pytests
+* Test tools in pytest:
     * Examples: Dataframe validation checks, Data format checking, ...
-* Helpers for investigating data
+* Helpers for investigating data:
     * Examples: Extract schema from binary encoded columns, Get the difference between two dataframes , ...
-* SPETLR-tools cli
+* SPETLR-tools CLI:
     * Examples: Submit pytests to Databricks cluster, Automated Azure Token extraction, ... 
 
-## SPETLR vs. SPETLR-tools
+## SPETLR-tools vs. SPETLR
 
-* SPETLR-tools: Only tested in python interpreter
-* SPETLR-tools: Github workflow has no Azure Deployment
-    * Thus, no integration tests on clusters
-* SPETLR: Is fully unit and integration tested meant for production use
+* SPETLR-tools: Only tested in a Python interpreter
+* SPETLR-tools: Github workflow does not have Azure Deployment
+    * Consequently, no integration tests on clusters
+* SPETLR: Fully unit and integration tested - library ready for production use
 * SPETLR-tools: Supports deployment and testing
     * Use only in `test_requirements.txt`
 
 # Installation
 
 Install SPETLR it from PyPI: 
+
 [![PyPI version](https://badge.fury.io/py/spetlr-tools.svg)](https://pypi.org/project/spetlr-tools/)
 [![PyPI](https://img.shields.io/pypi/dm/spetlr-tools)](https://pypi.org/project/spetlr-tools/)
 ```    
@@ -38,11 +39,11 @@ pip install spetlr-tools
 
 # Development Notes
 
-To prepare for development, please install these additional requirements:
+To prepare for development, please install following additional requirements:
  - Java 8
  - `pip install -r test_requirements.txt`
 
-Then install the package locally
+Then install the package locally:
 
     python setup.py develop
 
@@ -53,7 +54,7 @@ After installing the dev-requirements, execute tests by running:
 
     pytest tests
 
-These tests are located in the `./tests/unot` folder and only require a Python interpreter. Pull requests will not be accepted if these tests do not pass. If you add new features, please include corresponding tests.
+These tests are located in the `./tests/unit` folder and only require a Python interpreter. Pull requests will not be accepted if these tests do not pass. If you add new features, please include corresponding tests.
 
 
 
