@@ -1,5 +1,18 @@
 # spetlr-tools
 
+## Table of Contents
+
+- [Description](#description)
+- [Purpose of spetlr-tools](#purpose-of-spetlr-tools)
+- [Installation](#installation)
+- [Development Notes](#development-notes)
+- [Testing](#testing)
+- [General Project Info](#general-project-info)
+- [Contributing](#contributing)
+- [Build Status](#build-status)
+- [Releases](#releases)
+- [Contact](#contact)
+
 ## Description
 SPETLR-tools is a library that provides a set of tools for working with Databricks Lakehouses. These tools include test fixtures and development utilities that are not part of the runtime tools in [SPETLR](https://github.com/spetlr-org/spetlr).
 
