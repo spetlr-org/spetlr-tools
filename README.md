@@ -42,7 +42,7 @@ SPETLR-tools is designed to support SPETLR in various scenarios, including:
 
 # Installation
 
-Install SPETLR it from PyPI: 
+Install SPETLR from PyPI: 
 
 [![PyPI version](https://badge.fury.io/py/spetlr-tools.svg)](https://pypi.org/project/spetlr-tools/)
 [![PyPI](https://img.shields.io/pypi/dm/spetlr-tools)](https://pypi.org/project/spetlr-tools/)
