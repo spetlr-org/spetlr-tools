@@ -88,6 +88,7 @@ spetlr-test-job submit `
   "num_workers": 0
 }
 ```
+  Note: The structure `"instance_pool_id": "instance-pool://MY_POOL_NAME"` is supported.
 - the optional `requirements.txt` should contain a pip-style list of requirements
 - the optional `sparklibs.json` should contain spark dependencies as an array. Example:
 ```json
