@@ -17,9 +17,8 @@ import shutil
 import subprocess
 import tempfile
 import uuid
-from functools import lru_cache
 from pathlib import Path
-from typing import List, Union, Dict
+from typing import Dict, List, Union
 from typing.io import IO
 
 from . import test_main
