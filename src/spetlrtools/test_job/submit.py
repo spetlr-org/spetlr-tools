@@ -12,7 +12,9 @@ import copy
 import datetime
 import inspect
 import json
+import re
 import shutil
+import subprocess
 import tempfile
 import uuid
 from pathlib import Path
@@ -286,7 +288,7 @@ def submit(
             tasks = [verify_and_resolve_task(test_path, task)]
 
         for task in tasks:
-            task_sub = task.replace("/", "_")
+            task_sub = re.sub(r"[^a-zA-Z0-9_-]", "_", task)
             task_cluster = copy.deepcopy(cluster)
             task_cluster["cluster_log_conf"] = {
                 "dbfs": {"destination": f"{test_folder.remote}/{task_sub}"}
@@ -314,11 +316,19 @@ def submit(
                     new_cluster=task_cluster,
                 )
             )
+
     with tempfile.TemporaryDirectory() as tmp:
         jobfile = f"{tmp}/job.json"
         with open(jobfile, "w") as f:
             json.dump(workflow, f)
-        res = dbjcall(f"runs submit --json-file {jobfile}")
+
+        try:
+            res = dbjcall(f"runs submit --json-file {jobfile}")
+        except subprocess.CalledProcessError:
+            print("Json contents:")
+            print(json.dumps(workflow, indent=4))
+            raise
+
         try:
             run_id = res["run_id"]
         except KeyError:

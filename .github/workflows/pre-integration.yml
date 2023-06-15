@@ -26,16 +26,19 @@ jobs:
         with:
           python-version: ${{ matrix.python_version }}
       
-      - name: Install test requirements
-        run: pip install -r test_requirements.txt
-
       - name: Check code formatting
         run: |
+          pip install black isort
           black --check .
           isort --check .
-          
+
       - name: Check code linting
-        run: flake8 .
+        run: |
+          pip install flake8
+          flake8 .
+
+      - name: Install test requirements
+        run: pip install -r test_requirements.txt
 
       - name: Install the package
         run: python setup.py develop
