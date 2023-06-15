@@ -316,10 +316,12 @@ def submit(
                     new_cluster=task_cluster,
                 )
             )
+
     with tempfile.TemporaryDirectory() as tmp:
         jobfile = f"{tmp}/job.json"
         with open(jobfile, "w") as f:
             json.dump(workflow, f)
+
         try:
             res = dbjcall(f"runs submit --json-file {jobfile}")
         except subprocess.CalledProcessError:
