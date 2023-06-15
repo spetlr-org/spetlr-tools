@@ -17,8 +17,9 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+from functools import lru_cache
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Dict
 from typing.io import IO
 
 from . import test_main
@@ -239,6 +240,32 @@ def discover_job_tasks(test_path: str, folder: str):
     return subfolders
 
 
+class PoolBoy:
+    """Hold a list of available instance pools and replace the by-name reference with an id if possible."""
+
+    MARKER = "instance-pool://"
+
+    def __init__(self):
+        self._lookup = self.get_instance_pools()
+
+    def lookup(self, pool_id: str) -> str:
+        if pool_id.startswith(self.MARKER):
+            pool_name = pool_id[len(self.MARKER) :]
+            return self._lookup[pool_name]
+            # if this throws a KeyError, we are right to abort execution since the input is invalid.
+        else:
+            # No Marker = no lookup
+            return pool_id
+
+    def get_instance_pools(self) -> Dict[str, str]:
+        pool_data = dbjcall("instance-pools list --output JSON")
+        pool_lookup = {
+            pool["instance_pool_name"]: pool["instance_pool_id"]
+            for pool in pool_data["instance_pools"]
+        }
+        return pool_lookup
+
+
 def submit(
     test_path: str,
     task: str,
@@ -269,6 +296,8 @@ def submit(
     for py_requirement in requirement:
         sparklibs.append({"pypi": {"package": py_requirement}})
 
+    pools = PoolBoy()
+
     with DbTestFolder() as test_folder:
         for wheel in discover_and_push_wheels(wheels, test_folder):
             sparklibs.append({"whl": wheel})
@@ -289,10 +318,16 @@ def submit(
 
         for task in tasks:
             task_sub = re.sub(r"[^a-zA-Z0-9_-]", "_", task)
+
+            # prepare cluster
             task_cluster = copy.deepcopy(cluster)
             task_cluster["cluster_log_conf"] = {
                 "dbfs": {"destination": f"{test_folder.remote}/{task_sub}"}
             }
+            if "instance_pool_id" in task_cluster:
+                task_cluster["instance_pool_id"] = pools.lookup(
+                    task_cluster["instance_pool_id"]
+                )
 
             workflow["tasks"].append(
                 dict(
