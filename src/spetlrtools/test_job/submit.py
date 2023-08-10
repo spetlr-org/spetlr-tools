@@ -307,6 +307,10 @@ def submit(
 
         print(f"copied everything to {test_folder.remote}")
 
+        print("Wait 1 minute for uploading test folder...")
+        time.sleep(secs=60)
+        print("Waited 1 minute successfully!")
+
         # construct the workflow object
         workflow = dict(run_name="Testing Run", format="MULTI_TASK", tasks=[])
 
@@ -351,10 +355,6 @@ def submit(
                     new_cluster=task_cluster,
                 )
             )
-
-    print("Wait 1 minute for uploading test folder...")
-    time.sleep(secs=60)
-    print("Waited 1 minute successfully!")
 
     print("Submitting test...")
     with tempfile.TemporaryDirectory() as tmp:
