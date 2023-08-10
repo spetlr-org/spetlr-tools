@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import uuid
 from pathlib import Path
 from typing import Dict, List, Union
@@ -351,6 +352,11 @@ def submit(
                 )
             )
 
+    print("Wait 1 minute for uploading test folder...")
+    time.sleep(secs=60)
+    print("Waited 1 minute successfully!")
+
+    print("Submitting test...")
     with tempfile.TemporaryDirectory() as tmp:
         jobfile = f"{tmp}/job.json"
         with open(jobfile, "w") as f:
