@@ -13,6 +13,7 @@ import os
 import shutil
 import sys
 from hashlib import sha1
+from pathlib import Path
 
 import pytest
 
@@ -40,6 +41,11 @@ def test_main():
     args = parser.parse_args()
 
     extra_args = json.loads(args.pytestargs)
+
+    # the basedir folder should exist because it is also the log destination
+    # however we have seen cases where it does not exist yet at the start of the job,
+    # so let's create it.
+    Path(args.basedir).mkdir(parents=True, exist_ok=True)
 
     # move to basedir so that simple imports from one test to another work
     os.chdir(args.basedir)
