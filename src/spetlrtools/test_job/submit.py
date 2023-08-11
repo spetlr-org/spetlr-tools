@@ -308,7 +308,7 @@ def submit(
         print(f"copied everything to {test_folder.remote}")
 
         print("Wait 1 minute for uploading test folder...")
-        time.sleep(secs=60)
+        time.sleep(60)
         print("Waited 1 minute successfully!")
 
         # construct the workflow object
