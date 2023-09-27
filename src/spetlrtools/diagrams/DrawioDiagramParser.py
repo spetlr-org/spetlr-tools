@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from urllib.parse import unquote
 
 from spetlrtools.diagrams.Edge import Edge
-from spetlrtools.diagrams.HTMLStripper import HTMLStripper
+from spetlrtools.diagrams.HTMLStripper import HTMLStripper, condense_whitespace
 
 
 class DiagramNode:
@@ -46,7 +46,10 @@ class DiagramEdge(DiagramNode):
         return f"< {self.source_label} -- {self.target_label} >"
 
     def get_Edge(self) -> Edge:
-        return Edge(self.source_label, self.target_label)
+        return Edge(
+            condense_whitespace(self.source_label),
+            condense_whitespace(self.target_label),
+        )
 
 
 class DrawioDiagramParser:

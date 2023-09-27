@@ -6,6 +6,7 @@ from typing import List
 import yaml
 
 from spetlrtools.diagrams.Edge import Edge
+from spetlrtools.diagrams.HTMLStripper import condense_whitespace
 
 
 class DiagramDefinitionError(Exception):
@@ -56,8 +57,15 @@ class DiagramMarkupLibraryParser:
                 print(f"WARNING: block in {file_path} is not a dict")
                 continue
             for key, node in obj.items():
+                if not isinstance(node, dict):
+                    print(f"WARNING: The contents of {key} are not a dict: {node}.")
+                    print("         If you want a simple alias use:")
+                    print(f"           {key}:")
+                    print(f"           name: {node}")
+                    continue
+
                 try:
-                    _ = node["name"]
+                    node["name"] = condense_whitespace(node["name"])
                 except KeyError:
                     print(f"WARNING: Missing name in node {key} of {file_path}")
                     continue
