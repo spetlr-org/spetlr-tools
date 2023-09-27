@@ -57,6 +57,13 @@ class DiagramMarkupLibraryParser:
                 print(f"WARNING: block in {file_path} is not a dict")
                 continue
             for key, node in obj.items():
+                if not isinstance(node, dict):
+                    print(f"WARNING: The contents of {key} are not a dict: {node}.")
+                    print("         If you want a simple alias use:")
+                    print(f"           {key}:")
+                    print(f"           name: {node}")
+                    continue
+
                 try:
                     node["name"] = condense_whitespace(node["name"])
                 except KeyError:
