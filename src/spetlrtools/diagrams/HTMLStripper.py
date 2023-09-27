@@ -1,3 +1,4 @@
+import re
 from html.parser import HTMLParser
 from io import StringIO
 
@@ -28,3 +29,9 @@ class HTMLStripper(HTMLParser):
         o = HTMLStripper()
         o.feed(text)
         return o.get_data()
+
+
+def condense_whitespace(input: str) -> str:
+    """The output has all whitespace sequences replaces with a single space.
+    Leading and trailing whitespaces are stripped."""
+    return re.sub(r"\s+", " ", input).strip()
