@@ -1,11 +1,35 @@
 """
-- test the databricks api token
-- zip the test archive
-- walk the test folders to determine the parallelization
-- constuct the test job json
-    - tag the test job for easy retrieval
-- submit the test job
-- return the ID - also to file
+usage: spetlr-test-job submit [-h] [--dry-run] [--wheels WHEELS] --tests TESTS (--task TASK | --tasks-from TASKS_FROM) (--cluster CLUSTER | --cluster-file CLUSTER_FILE)
+                              [--sparklibs SPARKLIBS | --sparklibs-file SPARKLIBS_FILE] [--requirement REQUIREMENT | --requirements-file REQUIREMENTS_FILE] [--main-script MAIN_SCRIPT] [--pytest-args PYTEST_ARGS]
+                              [--out-json OUT_JSON]
+
+Run Test Cases on databricks cluster.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --dry-run             Don't do anything, only report
+  --wheels WHEELS       The glob paths of all wheels under test.
+  --tests TESTS         Location of the tests folder. Will be sent to databricks as a whole.
+  --task TASK           Single Test file or folder to execute.
+  --tasks-from TASKS_FROM
+                        path in test archive where each subfolder becomes a task.
+  --cluster CLUSTER     JSON document describing the cluster setup.
+  --cluster-file CLUSTER_FILE
+                        File with JSON document describing the cluster setup.
+  --sparklibs SPARKLIBS
+                        JSON document describing the spark dependencies.
+  --sparklibs-file SPARKLIBS_FILE
+                        File with JSON document describing the spark dependencies.
+  --requirement REQUIREMENT
+                        a python dependency, specified like for pip
+  --requirements-file REQUIREMENTS_FILE
+                        File with python dependencies, specified like for pip
+  --main-script MAIN_SCRIPT
+                        Your own test_main.py script file, to add custom functionality.
+  --pytest-args PYTEST_ARGS
+                        Additional arguments to pass to pytest in each test job.
+  --out-json OUT_JSON   File to store the RunID for future queries.
+
 """
 import argparse
 import copy
@@ -40,6 +64,10 @@ def setup_submit_parser(subparsers):
     parser.set_defaults(func=submit_main)
 
     parser.add_argument(
+        "--dry-run", help="Don't do anything, only report", action="store_true"
+    )
+
+    parser.add_argument(
         "--wheels",
         type=str,
         required=False,
@@ -51,17 +79,17 @@ def setup_submit_parser(subparsers):
         "--tests",
         type=str,
         required=True,
-        help="Location of the tests folder. Will be sendt to databricks as a whole.",
+        help="Location of the tests folder. Will be sent to databricks as a whole.",
     )
 
     task = parser.add_mutually_exclusive_group(required=True)
     task.add_argument(
-        "--task",
-        help="Single Test file or folder to execute.",
+        "--task", help="Single Test file or folder to execute.", action="append"
     )
     task.add_argument(
         "--tasks-from",
         help="path in test archive where each subfolder becomes a task.",
+        action="append",
     )
 
     # cluster argument pair
@@ -149,11 +177,6 @@ def collect_arguments(args):
         ]
 
     args.pytest_args = (args.pytest_args or "").split()
-    if args.tasks_from:
-        args.parallelize = True
-        args.task = args.tasks_from
-    else:
-        args.parallelize = False
 
     return args
 
@@ -166,15 +189,16 @@ def submit_main(args):
 
     submit(
         test_path=args.tests,
-        task=args.task,
-        parallelize=args.parallelize,
         cluster=args.cluster,
         wheels=args.wheels,
+        tasks=args.task,
+        tasks_from=args.tasks_from,
         requirement=args.requirement,
         sparklibs=args.sparklibs,
         out_json=args.out_json,
         main_script=args.main_script,
         pytest_args=args.pytest_args,
+        dry_run=args.dry_run,
     )
 
 
@@ -268,22 +292,54 @@ class PoolBoy:
 
 def submit(
     test_path: str,
-    task: str,
     cluster: dict,
     wheels: str,
-    parallelize: bool,
+    tasks: List[str] = None,
+    tasks_from: List[str] = None,
     requirement: List[str] = None,
     sparklibs: List[dict] = None,
     out_json: IO[str] = None,
     main_script: IO[str] = None,
     pytest_args: List[str] = None,
+    dry_run=False,
 ):
+    """
+    --dry-run             Don't do anything, only report
+    --wheels WHEELS       The glob paths of all wheels under test.
+    --tests TESTS         Location of the tests folder. Will be sent to databricks as a whole.
+    --task TASK           Single Test file or folder to execute. List of single tasks.
+    --tasks-from TASKS_FROM
+                          path in test archive where each subfolder becomes a task.
+                          List of folders to split from.
+    --cluster CLUSTER     JSON document describing the cluster setup.
+    --cluster-file CLUSTER_FILE
+                          File with JSON document describing the cluster setup.
+    --sparklibs SPARKLIBS
+                          JSON document describing the spark dependencies.
+    --sparklibs-file SPARKLIBS_FILE
+                          File with JSON document describing the spark dependencies.
+    --requirement REQUIREMENT
+                          a python dependency, specified like for pip
+    --requirements-file REQUIREMENTS_FILE
+                          File with python dependencies, specified like for pip
+    --main-script MAIN_SCRIPT
+                          Your own test_main.py script file, to add custom functionality.
+    --pytest-args PYTEST_ARGS
+                          Additional arguments to pass to pytest in each test job.
+    --out-json OUT_JSON   File to store the RunID for future queries.
+    """
     if requirement is None:
         requirement = []
     if sparklibs is None:
         sparklibs = []
     if pytest_args is None:
         pytest_args = []
+    if tasks is None:
+        tasks = []
+    if tasks_from is None:
+        tasks_from = []
+    if not (tasks or tasks_from):
+        raise ValueError("No tasks given")
 
     # check the structure of the cluster object
     if not isinstance(cluster, dict):
@@ -302,25 +358,28 @@ def submit(
         for wheel in discover_and_push_wheels(wheels, test_folder):
             sparklibs.append({"whl": wheel})
 
-        archive_local = archive_and_push(test_path, test_folder)
-        main_file = push_main_file(test_folder, main_script)
+        archive_local = archive_and_push(test_path, test_folder, dry_run=dry_run)
+        main_file = push_main_file(test_folder, main_script, dry_run=dry_run)
 
         print(f"copied everything to {test_folder.remote}")
 
-        print("Wait 1 minute for uploading test folder...")
-        time.sleep(60)
-        print("Waited 1 minute successfully!")
+        if not dry_run:
+            print("Wait 1 minute for uploading test folder...")
+            time.sleep(60)
+            print("Waited 1 minute successfully!")
 
         # construct the workflow object
         workflow = dict(run_name="Testing Run", format="MULTI_TASK", tasks=[])
 
-        if parallelize:
+        resolved_tasks = [verify_and_resolve_task(test_path, task) for task in tasks]
+        for task in tasks_from:
             # subtasks will be ['tests/cluster/job1', 'tests/cluster/job2'] or similar
-            tasks = discover_job_tasks(test_path, task)
-        else:
-            tasks = [verify_and_resolve_task(test_path, task)]
+            resolved_tasks += discover_job_tasks(test_path, task)
 
-        for task in tasks:
+        if dry_run:
+            print(resolved_tasks)
+
+        for task in resolved_tasks:
             task_sub = re.sub(r"[^a-zA-Z0-9_-]", "_", task)
 
             # prepare cluster
@@ -362,8 +421,18 @@ def submit(
         with open(jobfile, "w") as f:
             json.dump(workflow, f)
 
+        if dry_run:
+            with open(jobfile) as f:
+                print("DEBUG: workflow:")
+                print(f.read())
+
         try:
-            res = dbjcall(f"runs submit --json-file {jobfile}")
+            if not dry_run:
+                res = dbjcall(f"runs submit --json-file {jobfile}")
+            else:
+                print(f"DRY-RUN: Call: databricks runs submit --json-file {jobfile}")
+                print("DRY-RUN COMPLETED")
+                return
         except subprocess.CalledProcessError:
             print("Json contents:")
             print(json.dumps(workflow, indent=4))
@@ -395,7 +464,7 @@ def discover_and_push_wheels(globpath: str, test_folder: DbfsLocation) -> List[s
     return result
 
 
-def archive_and_push(test_path: str, test_folder: DbfsLocation):
+def archive_and_push(test_path: str, test_folder: DbfsLocation, dry_run=False):
     with tempfile.TemporaryDirectory() as tmp:
         test_path = Path(test_path)
         print(f"now archiving {test_path}")
@@ -407,13 +476,17 @@ def archive_and_push(test_path: str, test_folder: DbfsLocation):
         )
         print("now pushing test archive to test folder")
 
-        dbfscall(f"cp {archive_path} {test_folder.remote}/tests.zip")
-
+        if not dry_run:
+            dbfscall(f"cp {archive_path} {test_folder.remote}/tests.zip")
+        else:
+            print(
+                f"DRY-RUN: Call: dbfs cp {archive_path} {test_folder.remote}/tests.zip"
+            )
     return f"{test_folder.local}/tests.zip"
 
 
 def push_main_file(
-    test_folder: DbfsLocation, main_script: IO[str] = None
+    test_folder: DbfsLocation, main_script: IO[str] = None, dry_run=False
 ) -> DbfsLocation:
     print("now pushing test main file")
     main_file = test_folder / "main.py"
@@ -424,7 +497,8 @@ def push_main_file(
             else:
                 print("Using default main script test_main.py")
                 f.write(inspect.getsource(test_main))
-
-        dbfscall(f"cp {tmp}/main.py {main_file.remote}")
-
+        if not dry_run:
+            dbfscall(f"cp {tmp}/main.py {main_file.remote}")
+        else:
+            print(f"DRY-RUN: Call: dbfs cp {tmp}/main.py {main_file.remote}")
     return main_file
