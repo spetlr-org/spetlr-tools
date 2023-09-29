@@ -3,9 +3,9 @@ import argparse
 import configparser
 import json
 import re
+import subprocess
 import sys
 import tempfile
-import venv
 from io import TextIOBase
 from pathlib import Path
 from subprocess import run
@@ -89,8 +89,7 @@ def freeze_req(
     pat = re.compile(reject)
 
     with tempfile.TemporaryDirectory() as td:
-        builder = venv.EnvBuilder(with_pip=True)
-        builder.create(td)
+        subprocess.run([sys.executable, "-m", "venv", td])
 
         rf_path = str(Path(td) / "reqs.txt")
         with open(rf_path, "w") as f:
