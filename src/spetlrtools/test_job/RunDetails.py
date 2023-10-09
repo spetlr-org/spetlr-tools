@@ -76,15 +76,21 @@ def clean_cluster_output(raw_stdout: str) -> str:
         pass
 
     # step 2 remove GC warnings
-    snip = r"\[\w+: \d+K->\d+K\(\d+K\)\] "
-    pat = re.compile(
-        (
-            r"\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d\+0000: "
-            r"\[[\w\s]+ \([\w\s]+\) "
-            rf"({snip})+"
-            rf"\d+K->\d+K\(\d+K\), ({snip} , )* \d+.\d+ secs\] "
-            r"\[Times: user=\d+\.\d+ sys=\d+\.\d+, real=\d+\.\d+ secs\] "
-            r"\n?"
-        ).replace(" ", r"\s*")
+    timestamp = (
+        r"\d{4}-\d{2}-\d{2}"  # Year, month, day
+        r"T\d{2}:\d{2}:\d{2}"  # Hour, minute, second
+        r"\.\d{3}"  # millseconds
+        r"\d*"  # further fractional seconds
+        r"(\+\d+|-\d+|Z)"  # Time zone info
     )
+    pattern = (
+        r"^"  # preceeded by a newline or start of string
+        f"({timestamp}: )+"  # At least 1 timestamp followed by ": "
+        r"(\d+\.\d+: )?"  # unknown indicator
+        r"\["  # any block starting with a [
+        r".+$[\r\n]*"  # everything to end of line and all following newlines
+    ).replace(" ", r"\s*")
+
+    pat = re.compile(pattern, flags=re.MULTILINE)
+
     return pat.sub("", raw_stdout)
