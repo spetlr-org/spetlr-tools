@@ -85,7 +85,7 @@ def clean_cluster_output(raw_stdout: str) -> str:
     )
     pattern = (
         r"^"  # preceeded by a newline or start of string
-        f"({timestamp}: )+"  # At least 1 timestamp followed by ": "
+        f"({timestamp}:? )+"  # At least 1 timestamp followed by ": "
         r"(\d+\.\d+: )?"  # unknown indicator
         r"\["  # any block starting with a [
         r".+$[\r\n]*"  # everything to end of line and all following newlines
