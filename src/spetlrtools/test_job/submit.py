@@ -82,11 +82,10 @@ def setup_submit_parser(subparsers):
         help="Location of the tests folder. Will be sent to databricks as a whole.",
     )
 
-    task = parser.add_mutually_exclusive_group(required=True)
-    task.add_argument(
+    parser.add_argument(
         "--task", help="Single Test file or folder to execute.", action="append"
     )
-    task.add_argument(
+    parser.add_argument(
         "--tasks-from",
         help="path in test archive where each subfolder becomes a task.",
         action="append",
