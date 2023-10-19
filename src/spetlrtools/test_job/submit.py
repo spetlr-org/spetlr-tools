@@ -258,7 +258,7 @@ def discover_job_tasks(test_path: str, folder: str):
     subfolders = [
         verify_and_resolve_task(test_path, x)
         for x in (test_archive_parent / folder).iterdir()
-        if x.is_dir()
+        if (x.is_dir() and not x.stem.startswith("_"))
     ]
     return subfolders
 
