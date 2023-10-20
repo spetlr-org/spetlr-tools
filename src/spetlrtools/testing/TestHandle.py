@@ -19,6 +19,8 @@ class TestHandle(TableHandle):
         self.comparison_col = None
         self.comparison_limit = None
         self.comparison_operator = None
+        self.mergeSchema = None
+        self.overwriteSchema = None
 
     def read(self) -> DataFrame:
         if self.provides is not None:
@@ -26,11 +28,16 @@ class TestHandle(TableHandle):
         else:
             raise AssertionError("TableHandle not readable.")
 
-    def overwrite(self, df: DataFrame) -> None:
+    def overwrite(
+        self, df: DataFrame, mergeSchema: bool = None, overwriteSchema: bool = None
+    ) -> None:
         self.overwritten = df
+        self.mergeSchema = mergeSchema
+        self.overwriteSchema = overwriteSchema
 
-    def append(self, df: DataFrame) -> None:
+    def append(self, df: DataFrame, mergeSchema: bool = None) -> None:
         self.appended = df
+        self.mergeSchema = mergeSchema
 
     def truncate(self) -> None:
         self.truncated = True
