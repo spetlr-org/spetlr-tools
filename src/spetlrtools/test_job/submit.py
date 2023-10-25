@@ -1,7 +1,7 @@
 """
-usage: spetlr-test-job submit [-h] [--dry-run] [--wheels WHEELS] --tests TESTS (--task TASK | --tasks-from TASKS_FROM) (--cluster CLUSTER | --cluster-file CLUSTER_FILE)
+usage: spetlr-test-job submit [-h] [--dry-run] [--wheels WHEELS] --tests TESTS [--task TASK] [--tasks-from TASKS_FROM] (--cluster CLUSTER | --cluster-file CLUSTER_FILE)
                               [--sparklibs SPARKLIBS | --sparklibs-file SPARKLIBS_FILE] [--requirement REQUIREMENT | --requirements-file REQUIREMENTS_FILE] [--main-script MAIN_SCRIPT] [--pytest-args PYTEST_ARGS]
-                              [--out-json OUT_JSON]
+                              [--out-json OUT_JSON] [--wait WAIT]
 
 Run Test Cases on databricks cluster.
 
@@ -29,6 +29,7 @@ optional arguments:
   --pytest-args PYTEST_ARGS
                         Additional arguments to pass to pytest in each test job.
   --out-json OUT_JSON   File to store the RunID for future queries.
+  --wait WAIT           After upload, wait this many seconds for it to settle.
 
 """
 import argparse
@@ -146,6 +147,13 @@ def setup_submit_parser(subparsers):
         help="File to store the RunID for future queries.",
     )
 
+    parser.add_argument(
+        "--wait",
+        type=int,
+        help="After upload, wait this many seconds for it to settle.",
+        default=60,
+    )
+
     return
 
 
@@ -198,6 +206,7 @@ def submit_main(args):
         main_script=args.main_script,
         pytest_args=args.pytest_args,
         dry_run=args.dry_run,
+        wait=args.wait,
     )
 
 
@@ -301,15 +310,15 @@ def submit(
     main_script: IO[str] = None,
     pytest_args: List[str] = None,
     dry_run=False,
+    wait=60,
 ):
     """
     --dry-run             Don't do anything, only report
     --wheels WHEELS       The glob paths of all wheels under test.
     --tests TESTS         Location of the tests folder. Will be sent to databricks as a whole.
-    --task TASK           Single Test file or folder to execute. List of single tasks.
+    --task TASK           Single Test file or folder to execute.
     --tasks-from TASKS_FROM
                           path in test archive where each subfolder becomes a task.
-                          List of folders to split from.
     --cluster CLUSTER     JSON document describing the cluster setup.
     --cluster-file CLUSTER_FILE
                           File with JSON document describing the cluster setup.
@@ -326,6 +335,7 @@ def submit(
     --pytest-args PYTEST_ARGS
                           Additional arguments to pass to pytest in each test job.
     --out-json OUT_JSON   File to store the RunID for future queries.
+    --wait WAIT           After upload, wait this many seconds for it to settle.
     """
     if requirement is None:
         requirement = []
@@ -363,9 +373,9 @@ def submit(
         print(f"copied everything to {test_folder.remote}")
 
         if not dry_run:
-            print("Wait 1 minute for uploading test folder...")
-            time.sleep(60)
-            print("Waited 1 minute successfully!")
+            print(f"Wait {wait}s for uploading test folder...")
+            time.sleep(wait)
+            print(f"Waited {wait}s successfully!")
 
         # construct the workflow object
         workflow = dict(run_name="Testing Run", format="MULTI_TASK", tasks=[])
