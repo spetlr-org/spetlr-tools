@@ -92,6 +92,12 @@ class DataframeTestCase(unittest.TestCase):
                 if field["type"] == "struct":
                     for item in field["fields"]:
                         clear_nullable(item)
+                elif (
+                    field["type"] == "array"
+                    and field["elementType"]["type"] == "struct"
+                ):
+                    for item in field["elementType"]["fields"]:
+                        clear_nullable(item)
 
             for j in [json1, json2]:
                 for item in j["fields"]:
