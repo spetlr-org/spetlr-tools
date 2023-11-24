@@ -1,4 +1,5 @@
 import datetime
+import json
 import unittest
 from typing import Any, Iterable
 
@@ -12,6 +13,7 @@ class DataframeTestCase(unittest.TestCase):
         df: DataFrame,
         columns: Iterable[str] = None,
         expected_data: Iterable[Iterable[Any]] = None,
+        assert_order=False,
     ):
         """
         Args:
@@ -55,7 +57,8 @@ class DataframeTestCase(unittest.TestCase):
 
             assert_df = [tuple(row) for row in assert_df]
 
-            assert_df.sort()
+            if not assert_order:
+                assert_df = sorted(assert_df, key=lambda i: json.dumps(i))
 
         except KeyError as e:
             raise KeyError(
@@ -84,7 +87,7 @@ class DataframeTestCase(unittest.TestCase):
         json2 = schema2.jsonValue()
 
         if not compare_nullability:
-            # create a function for recursive clearing
+            # create a function     for recursive clearing
             def clear_nullable(field: StructField):
                 del field["nullable"]
                 if not field["metadata"]:
