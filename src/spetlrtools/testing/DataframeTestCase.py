@@ -72,7 +72,9 @@ class DataframeTestCase(unittest.TestCase):
                 if isinstance(row[i], datetime.datetime):
                     row[i] = row[i].astimezone(datetime.timezone.utc)
         expected_data = [tuple(row) for row in expected_data]
-        expected_data.sort()
+
+        if not assert_order:
+            expected_data = sorted(expected_data, key=lambda i: json.dumps(i))
 
         self.assertEqual(expected_data, assert_df)
 
