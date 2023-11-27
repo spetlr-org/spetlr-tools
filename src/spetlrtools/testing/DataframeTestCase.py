@@ -1,10 +1,11 @@
 import datetime
-import json
 import unittest
 from typing import Any, Iterable
 
 from pyspark.sql import DataFrame
 from pyspark.sql.types import ArrayType, StructField, StructType
+
+from spetlrtools.testing.TupleComparer import TupleComparer
 
 
 class DataframeTestCase(unittest.TestCase):
@@ -58,7 +59,7 @@ class DataframeTestCase(unittest.TestCase):
             assert_df = [tuple(row) for row in assert_df]
 
             if not assert_order:
-                assert_df = sorted(assert_df, key=lambda i: json.dumps(i))
+                assert_df = sorted(assert_df, key=TupleComparer)
 
         except KeyError as e:
             raise KeyError(
@@ -74,7 +75,7 @@ class DataframeTestCase(unittest.TestCase):
         expected_data = [tuple(row) for row in expected_data]
 
         if not assert_order:
-            expected_data = sorted(expected_data, key=lambda i: json.dumps(i))
+            expected_data = sorted(expected_data, key=TupleComparer)
 
         self.assertEqual(expected_data, assert_df)
 
