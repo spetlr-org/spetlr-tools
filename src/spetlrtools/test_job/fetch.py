@@ -13,7 +13,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import IO, List, Optional
 
-from spetlrtools.test_job.dbcli import db_check
+from spetlrtools.test_job.dbcli import dbcli
 from spetlrtools.test_job.RunDetails import RunDetails
 
 
@@ -72,7 +72,7 @@ def fetch_main(args):
     :param args: the parsed arguments from the fetch subparser
     :return:
     """
-    db_check()
+    dbcli.check_connection()
 
     # Post process the arguments
     if args.runid is None:
