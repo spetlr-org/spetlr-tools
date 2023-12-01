@@ -2,6 +2,7 @@ import re
 import subprocess
 import tempfile
 import time
+from pathlib import PosixPath
 
 from spetlrtools.test_job import test_main
 from spetlrtools.test_job.dbcli import dbcli
@@ -51,12 +52,20 @@ class RunDetails:
         """Wait until the file exists on dbfs."""
         # sometimes cluster logs do not appear immediately.
         # TODO: expose the wait parameters on the cli
+        p = PosixPath(location)
         for i in range(tries):
+            time.sleep(sleep_s)
+
             try:
-                dbcli.dbcall(f"fs ls {location}")
-                return
+                parts = [
+                    s.strip()
+                    for s in dbcli.dbcall(f"fs ls {str(p.parent)}").splitlines()
+                ]
             except subprocess.CalledProcessError:
-                time.sleep(sleep_s)
+                continue
+
+            if p.name in parts:
+                return
 
         raise DbfsFileDoesNotExist()
 
