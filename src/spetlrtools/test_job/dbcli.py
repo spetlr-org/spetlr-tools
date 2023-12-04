@@ -7,9 +7,13 @@ import sys
 class DbCli:
     def __init__(self):
         # establish databricks cli versrion
-        version_string = subprocess.check_output(
-            ["databricks", "--version"], encoding="utf-8"
-        )
+        try:
+            version_string = subprocess.check_output(
+                ["databricks", "--version"], encoding="utf-8"
+            )
+        except FileNotFoundError:
+            # in case of missing executable, assume v1
+            version_string = "Databricks CLI v0.210.1"
         match = re.match(r".*[^.0-9](\d+)\.(\d+)\.(\d+).*", version_string)
         version_tuple = int(match.group(1)), int(match.group(2)), int(match.group(3))
         if version_tuple < (0, 19, 0):
