@@ -48,7 +48,7 @@ from typing import Dict, List, Union
 from typing.io import IO
 
 from . import test_main
-from .dbcli import db_check, dbfscall, dbjcall
+from .dbcli import dbcli
 from .dbfs import DbfsLocation
 
 
@@ -190,7 +190,7 @@ def collect_arguments(args):
 
 def submit_main(args):
     """the main function of the cli command 'submit'. Not to be used directly."""
-    db_check()
+    dbcli.check_connection()
 
     args = collect_arguments(args)
 
@@ -228,7 +228,7 @@ class DbTestFolder:
 
     def __enter__(self):
         print(f"Making dbfs test folder {self._test_path_base.remote}")
-        dbfscall(f"mkdirs {self._test_path_base.remote}")
+        dbcli.dbcall(f"fs mkdirs {self._test_path_base.remote}")
         return self._test_path_base
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -290,10 +290,9 @@ class PoolBoy:
             return pool_id
 
     def get_instance_pools(self) -> Dict[str, str]:
-        pool_data = dbjcall("instance-pools list --output JSON")
         pool_lookup = {
             pool["instance_pool_name"]: pool["instance_pool_id"]
-            for pool in pool_data["instance_pools"]
+            for pool in dbcli.list_instance_pools()
         }
         return pool_lookup
 
@@ -427,6 +426,7 @@ def submit(
     print("Submitting test...")
     with tempfile.TemporaryDirectory() as tmp:
         jobfile = f"{tmp}/job.json"
+
         with open(jobfile, "w") as f:
             json.dump(workflow, f)
 
@@ -437,7 +437,7 @@ def submit(
 
         try:
             if not dry_run:
-                res = dbjcall(f"runs submit --json-file {jobfile}")
+                res = dbcli.submit_run_file(jobfile)
             else:
                 print(f"DRY-RUN: Call: databricks runs submit --json-file {jobfile}")
                 print("DRY-RUN COMPLETED")
@@ -455,7 +455,7 @@ def submit(
 
     # now we have the run_id
     print(f"Started run with ID {run_id}")
-    details = dbjcall(f"runs get --run-id {run_id}")
+    details = dbcli.get_run(run_id)
     print(f"Follow job details at {details['run_page_url']}")
 
     if out_json:
@@ -467,7 +467,7 @@ def discover_and_push_wheels(globpath: str, test_folder: DbfsLocation) -> List[s
     for item in Path().glob(globpath):
         remote_path = f"{test_folder.remote}/{item.parts[-1]}"
         print(f"pushing {item} to test folder")
-        dbfscall(f"cp {item} {remote_path}")
+        dbcli.dbcall(f"fs cp {item} {remote_path}")
         result.append(remote_path)
 
     return result
@@ -486,7 +486,7 @@ def archive_and_push(test_path: str, test_folder: DbfsLocation, dry_run=False):
         print("now pushing test archive to test folder")
 
         if not dry_run:
-            dbfscall(f"cp {archive_path} {test_folder.remote}/tests.zip")
+            dbcli.dbcall(f"fs cp {archive_path} {test_folder.remote}/tests.zip")
         else:
             print(
                 f"DRY-RUN: Call: dbfs cp {archive_path} {test_folder.remote}/tests.zip"
@@ -507,7 +507,7 @@ def push_main_file(
                 print("Using default main script test_main.py")
                 f.write(inspect.getsource(test_main))
         if not dry_run:
-            dbfscall(f"cp {tmp}/main.py {main_file.remote}")
+            dbcli.dbcall(f"fs cp {tmp}/main.py {main_file.remote}")
         else:
             print(f"DRY-RUN: Call: dbfs cp {tmp}/main.py {main_file.remote}")
     return main_file

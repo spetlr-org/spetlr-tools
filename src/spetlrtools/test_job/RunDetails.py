@@ -2,9 +2,10 @@ import re
 import subprocess
 import tempfile
 import time
+from pathlib import PosixPath
 
 from spetlrtools.test_job import test_main
-from spetlrtools.test_job.dbcli import dbcall, dbfscall, dbjcall
+from spetlrtools.test_job.dbcli import dbcli
 
 
 class DbfsFileDoesNotExist(Exception):
@@ -23,11 +24,11 @@ class RunDetails:
 
     def refresh(self):
         """refresh the internal details by querying databricks"""
-        self.details = dbjcall(f"runs get --run-id {self.run_id}")
+        self.details = dbcli.get_run(self.run_id)
 
     def cancel(self):
         """Cancel the run on databricks."""
-        dbcall(f"runs cancel --run-id {self.run_id}")
+        dbcli.cancel_run(self.run_id)
 
     def get_stdout(self, task_key: str) -> str:
         """Return the driver stdout from the cluster logs."""
@@ -43,7 +44,7 @@ class RunDetails:
             except DbfsFileDoesNotExist:
                 return f"-=ERROR FETCHING LOG FILES FROM  {log_stout_path}=-"
 
-            dbfscall(f"cp {log_stout_path} {tmp}/stdout")
+            dbcli.dbcall(f"fs cp {log_stout_path} {tmp}/stdout")
             with open(f"{tmp}/stdout", encoding="utf-8") as f:
                 return clean_cluster_output(f.read())
 
@@ -51,12 +52,20 @@ class RunDetails:
         """Wait until the file exists on dbfs."""
         # sometimes cluster logs do not appear immediately.
         # TODO: expose the wait parameters on the cli
+        p = PosixPath(location)
         for i in range(tries):
+            time.sleep(sleep_s)
+
             try:
-                dbfscall(f"ls {location}")
-                return
+                parts = [
+                    s.strip()
+                    for s in dbcli.dbcall(f"fs ls {str(p.parent)}").splitlines()
+                ]
             except subprocess.CalledProcessError:
-                time.sleep(sleep_s)
+                continue
+
+            if p.name in parts:
+                return
 
         raise DbfsFileDoesNotExist()
 
