@@ -41,6 +41,16 @@ jobs:
         run: pip install -r test_requirements.txt
 
       - name: Install the package
-        run: python setup.py develop
+        run: pip install -e .
+
       - name: Run Tests
         run: python -m pytest tests/
+
+      - name: Test CLI installer tests
+        run: |
+          spetlr-databricks-cli latest
+          spetlr-databricks-cli install
+          
+          databricks --version
+          
+          spetlr-databricks-cli uninstall
