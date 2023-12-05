@@ -77,7 +77,6 @@ def install_main(args):
 
 def determine_platform():
     details = platform.uname()
-    print("DEBUG:", details)
     if re.match(".*windows.*", details.system, flags=re.IGNORECASE):
         system = "_windows"
     elif re.match(".*darwin.*", details.system, flags=re.IGNORECASE):
