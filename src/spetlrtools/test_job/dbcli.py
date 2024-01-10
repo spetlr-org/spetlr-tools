@@ -2,6 +2,14 @@ import json
 import re
 import subprocess
 import sys
+from typing import Any
+
+
+def _try_resolve(obj: Any, key: str):
+    try:
+        return obj[key]
+    except TypeError:
+        return obj
 
 
 class DbCli:
@@ -70,10 +78,9 @@ class DbCli:
             return self.dbjcall(f"jobs get-run {run_id}")
 
     def list_instance_pools(self):
-        if self.version == 1:
-            return self.dbjcall("instance-pools list --output JSON")["instance_pools"]
-        else:
-            return self.dbjcall("instance-pools list --output JSON")
+        return _try_resolve(
+            self.dbjcall("instance-pools list --output JSON"), "instance_pools"
+        )
 
     def submit_run_file(self, file_path: str):
         if self.version == 1:
