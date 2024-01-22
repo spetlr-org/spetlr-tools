@@ -1,10 +1,18 @@
 """
-- find the test job (by ID or discover by tag)
-- get job status:
-- tasks: pending: 0 running: 0 success: 0 failed: 0
-- any time a task finishes, print the log
-- add a fail_fast so that any time a task fails, job is cancelled
+This script is dedicated to the uninstallation of the Databricks CLI tool. Its main features include:
+- Setting up a subparser for the 'uninstall' command, allowing the user to specify the target path for uninstallation.
+- The main function for the 'uninstall' command, which executes the uninstallation process.
+- The core uninstall function, which attempts to remove the Databricks CLI using system commands and
+    handles the deletion of the target executable file.
+
+This script is particularly useful for cleanly removing the Databricks CLI from a system, ensuring that
+    no residual files are left behind. It utilizes the 'subprocess' module to execute system-level commands
+    and 'argparse' for command-line argument parsing.
+
+Note: This script should be run through the command line interface and assumes proper permissions for
+    uninstallation tasks.
 """
+
 import argparse
 import os
 import subprocess

@@ -1,9 +1,17 @@
 """
-- find the test job (by ID or discover by tag)
-- get job status:
-- tasks: pending: 0 running: 0 success: 0 failed: 0
-- any time a task finishes, print the log
-- add a fail_fast so that any time a task fails, job is cancelled
+This script facilitates the installation of the Databricks CLI tool. Key features include:
+- Adding a subparser for the 'install' command to manage CLI installation.
+- The main function for the 'install' command, handling installation process based on user-specified
+    or default settings.
+- Determining the operating system and architecture to download the correct version of the CLI tool.
+- Functionality to download and install a specific or the latest version of the Databricks CLI, with options for
+    version control and target installation paths.
+- Force uninstallation of existing versions if specified.
+
+Dependencies include modules for command-line argument parsing, system and environment management,
+and internet requests.
+Note: This script is intended to be used through a command line interface and assumes access to required system paths
+and internet connectivity.
 """
 import argparse
 import io

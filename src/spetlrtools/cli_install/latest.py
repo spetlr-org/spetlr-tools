@@ -1,10 +1,15 @@
 """
-- find the test job (by ID or discover by tag)
-- get job status:
-- tasks: pending: 0 running: 0 success: 0 failed: 0
-- any time a task finishes, print the log
-- add a fail_fast so that any time a task fails, job is cancelled
+This script provides functionality for managing the installation process of a CLI tool.
+It includes commands to fetch the latest version of the CLI. Key functionalities include:
+- Adding a subparser for the 'latest' command to check for the latest version of the CLI.
+- A main function for the 'latest' command, which fetches and prints the latest CLI version.
+- A utility function to retrieve the latest version from a specified URL.
+
+Note: This script is intended to be used as a part of a larger CLI tool and should
+ be invoked through the command line interface.
 """
+
+
 import argparse
 import sys
 
