@@ -8,7 +8,7 @@ from typing import Any
 def _try_resolve(obj: Any, key: str):
     try:
         return obj[key]
-    except KeyError:
+    except (KeyError, TypeError):
         return obj
 
 
