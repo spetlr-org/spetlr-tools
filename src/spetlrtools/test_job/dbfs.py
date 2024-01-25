@@ -29,13 +29,11 @@ class DbfsLocation:
 
         return cls(base=val[:6])
 
-    @remote.setter
     def set_remote(self, remote: str) -> None:
         if not remote.startswith("dbfs:/"):
             raise AssertionError("Remote locations must start with dbfs:/")
         self.base = remote[6:]
 
-    @local.setter
     def set_local(self, local: str) -> None:
         if not local.startswith("/dbfs/"):
             raise AssertionError("Local locations must start with /dbfs/")
