@@ -33,9 +33,8 @@ SPETLR-tools is designed to support SPETLR in various scenarios, including:
 
 ## SPETLR-tools vs. SPETLR
 
-* SPETLR-tools: Only tested in a Python interpreter
-* SPETLR-tools: Github workflow does not have Azure Deployment
-    * Consequently, no integration tests on clusters
+* SPETLR-tools: Tested in a Python interpreter and per january 2024 also integration tested using on-cluster job tests.
+* SPETLR-tools: Github workflow have an very simple Azure Deployment
 * SPETLR: Fully unit and integration tested - library ready for production use
 * SPETLR-tools: Supports deployment and testing
     * Use only in `test_requirements.txt`
@@ -69,7 +68,8 @@ After installing the dev-requirements, execute tests by running:
 
 These tests are located in the `./tests/unit` folder and only require a Python interpreter. Pull requests will not be accepted if these tests do not pass. If you add new features, please include corresponding tests.
 
-
+### CLI and Cluster tests
+During the pre-integration workflow (`.gitub/workflows/pre-integration.yml`) spetlr-tool supported CLI are (should) be tested. 
 
 # General Project Info
 [![Github top language](https://img.shields.io/github/languages/top/spetlr-org/spetlr-tools)](https://github.com/spetlr-org/spetlr-tools)

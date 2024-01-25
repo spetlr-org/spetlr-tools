@@ -44,7 +44,7 @@ jobs:
         run: pip install -e .
 
       - name: Run Tests
-        run: python -m pytest tests/
+        run: python -m pytest tests/unit/
 
       - name: Test CLI installer tests
         run: |
@@ -54,3 +54,78 @@ jobs:
           databricks --version
           
           spetlr-databricks-cli uninstall
+  integration_test:
+#    needs: unit_test # integration can be run in parallel with unit-tests
+    runs-on: ubuntu-latest
+    environment: azure
+    concurrency: azure-integration
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.8"
+      
+      - name: Install test requirements
+        run: pip install -r test_requirements.txt
+
+      - name: Install the package
+        run: pip install -e .
+
+      - name: Log in to azure
+        shell: pwsh
+        run: |
+          az login --service-principal `
+            -u ${{ secrets.SPN_CLIENT_ID }} `
+            -p ${{ secrets.SPN_CLIENT_SECRET }} `
+            --tenant ${{ secrets.SPN_TENANT_ID }}
+
+      - name: Deploy Environment
+        shell: pwsh
+        run: |
+          .github/deploy/deploy.ps1 `
+            -tenantId ${{ secrets.SPN_TENANT_ID }} `
+            -pipelineClientId ${{ secrets.SPN_CLIENT_ID }} `
+            -pipelineSecret ${{ secrets.SPN_CLIENT_SECRET }} `
+            -uniqueRunId "${{ github.run_id }}${{ github.run_attempt }}"
+
+      - name: Install Databricks CLI v2
+        run: |
+          spetlr-databricks-cli install
+
+      - name: Test spetlr-tool CLIs on Databricks CLI v2
+        shell: pwsh
+        run: |
+          .github/test-cli/test.ps1
+
+      - name: Install Databricks CLI v1
+        shell: pwsh
+        run: |
+          spetlr-databricks-cli uninstall
+
+          pip install --upgrade databricks-cli
+
+      - name: Update databrickscfg to align with v1
+        shell: pwsh
+        run: |
+          .github/test-cli/set-cli-v1-cfg.ps1 `
+            -tenantId ${{ secrets.SPN_TENANT_ID }} `
+            -pipelineClientId ${{ secrets.SPN_CLIENT_ID }} `
+            -pipelineSecret ${{ secrets.SPN_CLIENT_SECRET }} `
+            -uniqueRunId "${{ github.run_id }}${{ github.run_attempt }}"
+
+      - name: Test spetlr-tool CLIs on Databricks CLI v1
+        shell: pwsh
+        run: |
+          .github/test-cli/test.ps1
+
+      - name: Delete Deployment
+        if: always() # this step runs even if the pipeline is manually cancelled
+        shell: pwsh
+        run: |
+          az login --service-principal `
+            -u ${{ secrets.SPN_CLIENT_ID }} `
+            -p ${{ secrets.SPN_CLIENT_SECRET }} `
+            --tenant ${{ secrets.SPN_TENANT_ID }}
+          .github/deploy/destroy.ps1 `
+            -uniqueRunId "${{ github.run_id }}${{ github.run_attempt }}"
