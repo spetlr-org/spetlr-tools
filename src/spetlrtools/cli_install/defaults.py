@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 def isWin():
-    return bool(re.match(".*windows.*", platform.system()))
+    return bool(re.match(".*windows.*", platform.system(), flags=re.IGNORECASE))
 
 
 _DEFAULT_TARGET = Path(sysconfig.get_paths()["scripts"]) / (
