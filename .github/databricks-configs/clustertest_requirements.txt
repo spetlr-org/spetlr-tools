@@ -1,0 +1,10 @@
+spetlr
+pyyaml
+importlib_metadata
+requests
+pyspark
+packaging
+pytest
+black
+isort
+flake8

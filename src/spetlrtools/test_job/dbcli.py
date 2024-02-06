@@ -78,8 +78,11 @@ class DbCli:
             return self.dbjcall(f"jobs get-run {run_id}")
 
     def list_instance_pools(self):
-        return _try_resolve(
-            self.dbjcall("instance-pools list --output JSON"), "instance_pools"
+        return (
+            _try_resolve(
+                self.dbjcall("instance-pools list --output JSON"), "instance_pools"
+            )
+            or []
         )
 
     def submit_run_file(self, file_path: str):
