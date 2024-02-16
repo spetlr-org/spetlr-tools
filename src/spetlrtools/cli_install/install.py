@@ -13,6 +13,7 @@ and internet requests.
 Note: This script is intended to be used through a command line interface and assumes access to required system paths
 and internet connectivity.
 """
+
 import argparse
 import io
 import os

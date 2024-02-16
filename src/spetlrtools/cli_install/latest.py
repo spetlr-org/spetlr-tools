@@ -9,7 +9,6 @@ Note: This script is intended to be used as a part of a larger CLI tool and shou
  be invoked through the command line interface.
 """
 
-
 import argparse
 import sys
 

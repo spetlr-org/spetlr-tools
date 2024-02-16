@@ -5,6 +5,7 @@
 - any time a task finishes, print the log
 - add a fail_fast so that any time a task fails, job is cancelled
 """
+
 import argparse
 import json
 import sys
