@@ -131,3 +131,6 @@ dmypy.json
 
 # ignore bicep build
 .github/deploy-bicep/main-spetlrtools.json
+
+# Visual studio code
+.vscode/
