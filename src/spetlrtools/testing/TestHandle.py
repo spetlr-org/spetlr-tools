@@ -1,5 +1,6 @@
 from typing import Any, List, Union
 
+import pyspark.sql.types as T
 from pyspark.sql import DataFrame
 from spetlr.tables.TableHandle import TableHandle
 
@@ -7,8 +8,9 @@ from spetlr.tables.TableHandle import TableHandle
 class TestHandle(TableHandle):
     __test__ = False  # solves PytestCollectionWarning
 
-    def __init__(self, provides: DataFrame = None):
+    def __init__(self, provides: DataFrame = None, schema: T.StructType = None):
         self.provides = provides
+        self.schema = schema
         self.overwritten = None
         self.appended = None
         self.truncated = False
@@ -58,3 +60,11 @@ class TestHandle(TableHandle):
         self.comparison_col = comparison_col
         self.comparison_limit = comparison_limit
         self.comparison_operator = comparison_operator
+
+    def get_schema(self) -> T.StructType:
+        if self.schema is not None:
+            return self.schema
+        elif self.provides is not None:
+            return self.provides.schema
+        else:
+            raise AssertionError("TableHandle has no schema.")
