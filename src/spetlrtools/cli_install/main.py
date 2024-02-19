@@ -13,7 +13,6 @@ Overall, this script simplifies the user interaction with the Databricks CLI too
 offering a streamlined way to install, uninstall, and check for updates directly from the command line.
 """
 
-
 import argparse
 
 from spetlrtools.cli_install.install import setup_install_parser

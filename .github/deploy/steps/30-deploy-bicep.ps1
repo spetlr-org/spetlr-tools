@@ -15,7 +15,7 @@ $output = az deployment sub create `
   --template-file $repoRoot\.github\deploy-bicep\main-spetlrtools.bicep `
   --parameters `
       location=$location `
-      resourceTags=$resourceTags `
+      tags=$resourceTagsJson `
       resourceGroupName=$resourceGroupName `
       databricksName=$databricksName
 

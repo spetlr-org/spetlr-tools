@@ -2,7 +2,7 @@
 targetScope = 'subscription'
 
 param location string
-param resourceTags object
+param tags object
 param resourceGroupName string
 param databricksName string
 
@@ -13,7 +13,7 @@ module rgModule2 'rg-integration.bicep' = {
   params: {
     name: resourceGroupName
     location: location
-    tags: resourceTags
+    tags: tags
   }
 }
 
@@ -26,6 +26,6 @@ module resources2 'resources-integration.bicep' = {
     databricksName: databricksName
     location: location
     resourceGroupName: resourceGroupName
-    resourceTags: resourceTags
+    tags: tags
     }
 }

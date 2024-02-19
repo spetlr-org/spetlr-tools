@@ -1,7 +1,7 @@
 param databricksName string
 param location string
 param resourceGroupName string
-param resourceTags object
+param tags object
 //#############################################################################################
 //# Provision Databricks Workspace
 //#############################################################################################
@@ -12,5 +12,5 @@ resource rsdatabricks 'Microsoft.Databricks/workspaces@2022-04-01-preview' = {
   properties: {
     managedResourceGroupId: subscriptionResourceId('Microsoft.Resources/resourceGroups', '${resourceGroupName}Cluster')
   }
-  tags: resourceTags
+  tags: tags
 }

@@ -9,7 +9,6 @@ The script uses the 'platform' and 'sysconfig' modules to accurately identify th
 set file paths, ensuring compatibility with different operating systems, particularly Windows and Unix-based systems.
 """
 
-
 import platform
 import re
 import sysconfig

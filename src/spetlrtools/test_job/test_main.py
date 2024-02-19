@@ -7,6 +7,7 @@ Its tasks are
 - run the tests using pytest
 This file is not intended to be used directly.
 """
+
 import argparse
 import json
 import os
