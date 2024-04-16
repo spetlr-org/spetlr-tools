@@ -4,8 +4,8 @@ import tempfile
 import time
 from pathlib import PosixPath
 
-from spetlrtools.test_job import test_main
-from spetlrtools.test_job.dbcli import dbcli
+from spetlrtools.test_job_legacy import test_main
+from spetlrtools.test_job_legacy.dbcli import dbcli
 
 
 class DbfsFileDoesNotExist(Exception):

@@ -1,7 +1,7 @@
 import argparse
 
-from spetlrtools.test_job_legacy.fetch import setup_fetch_parser
-from spetlrtools.test_job_legacy.submit import setup_submit_parser
+from spetlrtools.test_job.fetch import setup_fetch_parser
+from spetlrtools.test_job.submit import setup_submit_parser
 
 
 def main():

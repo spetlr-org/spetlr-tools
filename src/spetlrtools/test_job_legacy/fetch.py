@@ -14,8 +14,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import IO, List, Optional
 
-from spetlrtools.test_job.dbcli import dbcli
-from spetlrtools.test_job.RunDetails import RunDetails
+from spetlrtools.test_job_legacy.dbcli import dbcli
+from spetlrtools.test_job_legacy.RunDetails import RunDetails
 
 
 def setup_fetch_parser(subparsers):
