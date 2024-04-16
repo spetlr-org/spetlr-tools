@@ -1,6 +1,6 @@
 import unittest
 
-from spetlrtools.test_job.RunDetails import clean_cluster_output
+from spetlrtools.test_job_legacy.RunDetails import clean_cluster_output
 
 
 class TestJobTests(unittest.TestCase):

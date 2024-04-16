@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from spetlrtools.test_job.submit import DbTestFolder, PoolBoy
+from spetlrtools.test_job_legacy.submit import DbTestFolder, PoolBoy
 
 
 class TestSubmit(unittest.TestCase):

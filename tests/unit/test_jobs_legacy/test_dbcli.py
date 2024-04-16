@@ -2,7 +2,7 @@ import subprocess
 import unittest
 from unittest.mock import MagicMock, patch
 
-from spetlrtools.test_job.dbcli import DbCli
+from spetlrtools.test_job_legacy.dbcli import DbCli
 
 
 class TestDbCli(unittest.TestCase):
