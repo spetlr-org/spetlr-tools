@@ -35,15 +35,14 @@ def test_main():
 
     extra_args = json.loads(args.pytestargs)
 
-    # the basedir folder should exist because it is also the log destination
-    # however we have seen cases where it does not exist yet at the start of the job,
-    # so let's create it.
-    Path(args.basedir).mkdir(parents=True, exist_ok=True)
-
     # move to basedir so that simple imports from one test to another work
     basedir: str = args.basedir
     if basedir.startswith("dbfs:"):
         basedir = "/dbfs" + basedir[5:]
+    # the basedir folder should exist because it is also the log destination
+    # however we have seen cases where it does not exist yet at the start of the job,
+    # so let's create it.
+    Path(basedir).mkdir(parents=True, exist_ok=True)
     os.chdir(basedir)
 
     sys.path = [os.getcwd()] + sys.path
