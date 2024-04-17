@@ -82,19 +82,31 @@ class DbCli:
             or []
         )
 
-    def submit_run_file(self, file_path: str):
-        return self.dbjcall(f"jobs submit --no-wait --json @{file_path}")
+    def submit_run_file(self, file_path: str, dry_run=False):
+        command = f"jobs submit --no-wait --json @{file_path}"
+        if dry_run:
+            print("Action skipped for dry-run:")
+            print(f">> databricks {command}")
+            print("Dry run ends here.")
+            sys.exit(0)
 
-    def execv_run_file(self, file_path: str):
+        return self.dbjcall(command)
+
+    def execv_run_file(self, file_path: str, dry_run=False):
         databricks = shutil.which("databricks")
         if databricks is None:
             print("databricks not found in PATH.", file=sys.stderr)
             sys.exit(1)
 
+        args = ["databricks", "jobs", "submit", f"--json=@{file_path}"]
+
+        if dry_run:
+            print("Action skipped for dry-run:")
+            print(">>", *args)
+            sys.exit(0)
+
         try:
-            os.execv(
-                databricks, ["databricks", "jobs", "submit", f"--json=@{file_path}"]
-            )
+            os.execv(databricks, args)
         except Exception as e:
             print(f"Failed to execute the command: {e}", file=sys.stderr)
             sys.exit(1)

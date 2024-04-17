@@ -41,7 +41,11 @@ def test_main():
     Path(args.basedir).mkdir(parents=True, exist_ok=True)
 
     # move to basedir so that simple imports from one test to another work
-    os.chdir(args.basedir)
+    basedir: str = args.basedir
+    if basedir.startswith("dbfs:"):
+        basedir = "/dbfs" + basedir[5:]
+    os.chdir(basedir)
+
     sys.path = [os.getcwd()] + sys.path
 
     # unzip test archive to base folder

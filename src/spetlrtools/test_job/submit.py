@@ -29,7 +29,10 @@ optional arguments:
   --pytest-args PYTEST_ARGS
                         Additional arguments to pass to pytest in each test job.
   --out-json OUT_JSON   File to store the RunID for future queries.
+  --upload-to {workspace,dbfs}
+                        Where to upload test job files.
   --no-wait             After submission, return, and don't wait for result.
+
 
 """
 
@@ -47,10 +50,19 @@ from typing.io import IO
 from spetlrtools.test_job import test_main
 from spetlrtools.test_job.dbcli import DbCli
 from spetlrtools.test_job.RemoteLocation import (
+    DbfsLocation,
     RemoteLocation,
     StageArea,
     WorkspaceLocation,
 )
+
+
+# Custom action to handle the deprecation warning
+class DeprecatedAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        print(
+            f"WARNING: {option_string} is deprecated and will be removed in future versions."
+        )
 
 
 def setup_submit_parser(subparsers):
@@ -149,10 +161,18 @@ def setup_submit_parser(subparsers):
     )
 
     parser.add_argument(
+        "--upload-to",
+        choices=["workspace", "dbfs"],
+        help="Where to upload test job files.",
+        default="dbfs",
+    )
+
+    parser.add_argument(
         "--no-wait",
         action="store_true",
         help="After submission, return, and don't wait for result.",
     )
+    parser.add_argument("--wait", action=DeprecatedAction, help=argparse.SUPPRESS)
 
     return
 
@@ -206,6 +226,7 @@ def submit_main(args):
         main_script=args.main_script,
         pytest_args=args.pytest_args,
         dry_run=args.dry_run,
+        upload_to=args.upload_to,
         no_wait=args.no_wait,
     )
 
@@ -284,6 +305,7 @@ def submit(
     main_script: IO[str] = None,
     pytest_args: List[str] = None,
     dry_run=False,
+    upload_to="dbfs",
     no_wait=False,
 ):
     """
@@ -309,6 +331,8 @@ def submit(
     --pytest-args PYTEST_ARGS
                           Additional arguments to pass to pytest in each test job.
     --out-json OUT_JSON   File to store the RunID for future queries.
+    --upload-to {workspace,dbfs}
+                          Where to upload test job files.
     --no-wait             After submission, return, and don't wait for result.
     """
     if requirement is None:
@@ -323,6 +347,7 @@ def submit(
         tasks_from = []
     if not (tasks or tasks_from):
         raise ValueError("No tasks given")
+    upload_to = upload_to.lower()
 
     # check the structure of the cluster object
     if not isinstance(cluster, dict):
@@ -340,7 +365,12 @@ def submit(
     # create everything in a temporary directory.
     # for dry-runs, keep make it a local directory and keep it
     with StageArea(dry_run) as stage:
-        remote: RemoteLocation = WorkspaceLocation(stage)
+        if upload_to == "workspace":
+            remote: RemoteLocation = WorkspaceLocation(stage)
+        elif upload_to == "dbfs":
+            remote: RemoteLocation = DbfsLocation(stage)
+        else:
+            raise ValueError("unsupported upload")
 
         wheels = discover_wheels(wheels, remote)
         for wheel in wheels:
@@ -388,48 +418,40 @@ def submit(
                 )
             )
 
-        with tempfile.TemporaryDirectory() as jobfile_dir:
-            jobfile = f"{jobfile_dir}/job.json"
+        jobfile = remote.new_local_file("job.json").local
 
-            with open(jobfile, "w") as f:
-                json.dump(workflow, f, indent=2)
+        with open(jobfile, "w") as f:
+            json.dump(workflow, f, indent=2)
 
-            remote.add_local_path(jobfile)
+        remote.upload(dry_run)
 
-            if dry_run:
-                print("Not submitting test for dry-run.")
-                print(f"See the proposed job in {stage}")
-                return
+        if not no_wait:
+            print("handing control to databricks jobs submit ...")
+            dbcli.execv_run_file(jobfile, dry_run=dry_run)
+            # the above function ends python and does not return
+            return
 
-            remote.upload()
+        try:
+            print("Submitting job...")
+            res = dbcli.submit_run_file(jobfile, dry_run=dry_run)
+        except subprocess.CalledProcessError:
+            print("Json contents:")
+            print(json.dumps(workflow, indent=4))
+            raise
 
-            if not no_wait:
-                print("handing control to databricks jobs submit ...")
-                dbcli.execv_run_file(jobfile)
-                # the above function ends python and does not return
-                return
+    try:
+        run_id = res["run_id"]
+    except KeyError:
+        print(res)
+        raise
 
-            try:
-                print("Submitting job...")
-                res = dbcli.submit_run_file(jobfile)
-            except subprocess.CalledProcessError:
-                print("Json contents:")
-                print(json.dumps(workflow, indent=4))
-                raise
+    # now we have the run_id
+    print(f"Started run with ID {run_id}")
+    details = dbcli.get_run(run_id)
+    print(f"Follow job details at {details['run_page_url']}")
 
-            try:
-                run_id = res["run_id"]
-            except KeyError:
-                print(res)
-                raise
-
-            # now we have the run_id
-            print(f"Started run with ID {run_id}")
-            details = dbcli.get_run(run_id)
-            print(f"Follow job details at {details['run_page_url']}")
-
-            if out_json:
-                json.dump({"run_id": run_id}, out_json)
+    if out_json:
+        json.dump({"run_id": run_id}, out_json)
 
 
 def discover_wheels(globpath: str, remote: RemoteLocation) -> List[str]:
@@ -462,14 +484,13 @@ def prepare_archive(test_path: str, remote: RemoteLocation):
 def prepare_main_file(remote: RemoteLocation, main_script: IO[str] = None) -> str:
     print("now preparing test main file")
 
-    with tempfile.TemporaryDirectory() as tempdir:
-        main_file = Path(tempdir) / "main.py"
+    main_ref = remote.new_local_file("main.py")
 
-        with open(main_file, "w") as f:
-            if main_script:
-                f.write(main_script.read())
-            else:
-                print("Using default main script test_main.py")
-                f.write(inspect.getsource(test_main))
+    with open(main_ref.local, "w") as f:
+        if main_script:
+            f.write(main_script.read())
+        else:
+            print("Using default main script test_main.py")
+            f.write(inspect.getsource(test_main))
 
-        return remote.add_local_path(main_file)
+    return main_ref.remote
