@@ -69,10 +69,13 @@ class DbCli:
         return self.dbjcall("current-user me")["userName"]
 
     def cancel_run(self, run_id: int):
-        return self.dbcall(f"jobs cancel_run {run_id}")
+        return self.dbcall(f"jobs cancel-run {run_id}")
 
     def get_run(self, run_id: int):
         return self.dbjcall(f"jobs get-run {run_id}")
+
+    def get_run_output(self, run_id: int):
+        return self.dbjcall(f"jobs get-run-output {run_id}")
 
     def list_instance_pools(self):
         return (
