@@ -406,7 +406,7 @@ def submit(
                         parameters=[
                             # running in the spark python interpreter, the python __file__ variable does not
                             # work. Hence, we need to tell the script where the test area is.
-                            f"--basedir={PosixPath(remote.remote_base()) / task_sub}",
+                            f"--basedir={remote.remote_base()}",
                             # we can actually run any part of our test suite, but some files need the full repo.
                             # Only run tests from this folder.
                             f"--folder={task}",

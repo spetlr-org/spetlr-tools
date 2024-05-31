@@ -14,6 +14,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -42,25 +43,27 @@ def test_main():
     # the basedir folder should exist because it is also the log destination
     # however we have seen cases where it does not exist yet at the start of the job,
     # so let's create it.
-    Path(basedir).mkdir(parents=True, exist_ok=True)
-    os.chdir(basedir)
 
-    sys.path = [os.getcwd()] + sys.path
+    with TemporaryDirectory() as tmpdir:
+        os.chdir(tmpdir)
 
-    # unzip test archive to base folder
-    shutil.move("tests.archive", "tests.zip")
-    shutil.unpack_archive("tests.zip")
+        sys.path = [tmpdir] + sys.path
 
-    # Ensure Spark is initialized before any tests are run
-    # the import statement is inside the function so that the outer file
-    # can be imported even where pyspark may not be available
-    from spetlr.spark import Spark
+        # unzip test archive to base folder
+        shutil.copy(Path(basedir) / "tests.archive", "tests.zip")
+        shutil.unpack_archive("tests.zip")
+        os.unlink("tests.zip")
 
-    Spark.get()
+        # Ensure Spark is initialized before any tests are run
+        # the import statement is inside the function so that the outer file
+        # can be imported even where pyspark may not be available
+        from spetlr.spark import Spark
 
-    retcode = pytest.main(["-x", args.folder, *extra_args])
-    if retcode.value:
-        raise Exception("Pytest failed")
+        Spark.get()
+
+        retcode = pytest.main(["-x", args.folder, *extra_args])
+        if retcode.value:
+            raise Exception("Pytest failed")
 
 
 if __name__ == "__main__":

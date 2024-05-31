@@ -90,7 +90,7 @@ class WorkspaceLocation(RemoteLocation):
     def __init__(self, stage_area: str):
         super().__init__(stage_area)
         self.remote_home_to_base = f".spetlr/test/{self.date}"
-        self.remote_home = PosixPath("/Workspace/Users/{DbCli().whoami()}")
+        self.remote_home = PosixPath(f"/Workspace/Users/{DbCli().whoami()}")
 
     def remote_base(self) -> str:
         return str(self.remote_home / self.remote_home_to_base)
