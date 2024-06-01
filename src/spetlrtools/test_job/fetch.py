@@ -14,6 +14,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import IO, List, Optional
 
+from databricks.sdk.service import jobs
+
 from spetlrtools.test_job.RunDetails import RunDetails
 
 
@@ -92,7 +94,8 @@ def fetch(run_id: int, stdout_file: IO[str] = None, failfast=False):
     last_state = None
     stdouts = {}
     while True:
-        state = MultiTaskState.fromJson(run.details)
+        state = MultiTaskState.fromRun(run.details)
+        # state = MultiTaskState.fromJson(run.details.as_dict())
         if last_state is None or state != last_state:
             last_state = state
             state.print_status()
@@ -128,6 +131,13 @@ def fetch(run_id: int, stdout_file: IO[str] = None, failfast=False):
         return 1
 
 
+def enumNameOrNone(obj):
+    if obj is None:
+        return ""
+    else:
+        return obj.name
+
+
 @dataclass
 class TaskState:
     """The result state of any workflow or task"""
@@ -156,15 +166,27 @@ class TaskState:
         return self.result_state.upper() == "SUCCESS"
 
     @classmethod
-    def fromJson(cls, jobj):
+    def fromTask(cls, task: jobs.RunTask):
         """Create the result state of the workflow or task from the json object
         returned by the databricks api."""
-        state = jobj["state"]
+
         return cls(
-            task_key=jobj["task_key"] if "task_key" in jobj else jobj["run_name"],
-            life_cycle_state=state["life_cycle_state"],
-            result_state=state["result_state"] if "result_state" in state else "",
-            end_time=jobj["end_time"] if "end_time" in jobj else 0,
+            task_key=task.task_key,
+            life_cycle_state=enumNameOrNone(task.state.life_cycle_state),
+            result_state=enumNameOrNone(task.state.result_state),
+            end_time=task.end_time,
+        )
+
+    @classmethod
+    def fromRun(cls, run: jobs.Run):
+        """Create the result state of the workflow or task from the json object
+        returned by the databricks api."""
+
+        return cls(
+            task_key=run.run_name,
+            life_cycle_state=enumNameOrNone(run.state.life_cycle_state),
+            result_state=enumNameOrNone(run.state.result_state),
+            end_time=run.end_time,
         )
 
 
@@ -176,13 +198,13 @@ class MultiTaskState:
     tasks: List[TaskState]
 
     @classmethod
-    def fromJson(cls, jobj):
+    def fromRun(cls, run: jobs.Run):
         """Create the Result state of a multiTask workflow from the json object returned
         by the databricks api."""
 
         return cls(
-            overall=TaskState.fromJson(jobj),
-            tasks=[TaskState.fromJson(task) for task in jobj["tasks"]],
+            overall=TaskState.fromRun(run),
+            tasks=[TaskState.fromTask(task) for task in run.tasks],
         )
 
     def accumulate(self):

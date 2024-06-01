@@ -1,16 +1,18 @@
+from databricks.sdk.service import jobs
+
 from spetlrtools.test_job.dbcli import DbCli
 
 
 class RunDetails:
     """Object representing the details of a job run"""
 
-    details: dict
+    details: jobs.Run
 
     def __init__(self, run_id: int):
         self.run_id = run_id
         self._db = DbCli()
         self.refresh()
-        print(f"Job details: {self.details['run_page_url']}")
+        print(f"Job details: {self.details.run_page_url}")
 
     def refresh(self):
         """refresh the internal details by querying databricks"""
@@ -25,8 +27,8 @@ class RunDetails:
         self.refresh()
 
         print(f"Getting stdout for {task_key}")
-        (task,) = [t for t in self.details["tasks"] if t["task_key"] == task_key]
-        task_id = task["run_id"]
+        task: jobs.RunTask
+        (task,) = [t for t in self.details.tasks if t.task_key == task_key]
+        task_id = task.run_id
         output = self._db.get_run_output(task_id)
-        log = output["logs"]
-        return log
+        return output.logs

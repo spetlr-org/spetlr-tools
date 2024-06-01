@@ -1,10 +1,13 @@
+import base64
 import datetime
 import shutil
 from dataclasses import dataclass
 from pathlib import Path, PosixPath
 from tempfile import TemporaryDirectory
+from typing.io import BinaryIO
 
-from spetlrtools.test_job.dbcli import DbCli
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service import workspace
 
 
 class StageArea:
@@ -36,16 +39,15 @@ class RemoteLocation:
     - execute the upload
     """
 
+    _dbwsc: WorkspaceClient
+
     def __init__(self, stage_area: str):
         self.stage_area = Path(stage_area)
-        self._dbcli = DbCli()
-        self.me = self._dbcli.whoami()
+        self._dbwsc = WorkspaceClient()
+        self.me = self._dbwsc.current_user.me().user_name
         self.date = datetime.datetime.now().isoformat()
         self.remote_home_to_base = ""
         self.remote_home = PosixPath()
-
-    def upload(self, dry_run=False):
-        raise NotImplementedError()
 
     def add_local_path(self, source: str, dir: str = None) -> str:
         """Add a source file to the target work area under a certain directory.
@@ -68,6 +70,12 @@ class RemoteLocation:
         remote: str
         local: str
 
+    def _mkdirs(self, path: str):
+        raise NotImplementedError()
+
+    def _upload_object(self, path: str, f: BinaryIO):
+        raise NotImplementedError()
+
     def new_local_file(self, name: str) -> FileRef:
         """Add a new file to the target work area under a certain directory.
         The directory is made to exist. The file should be written to the local
@@ -85,41 +93,56 @@ class RemoteLocation:
         """The full path of the work area once it has been uploaded to databricks."""
         raise NotImplementedError()
 
+    def upload(self, dry_run=False):
+        if dry_run:
+            print("Not uploading test job folder - Action skipped for dry-run.")
+        else:
+            print("Now uploading test job folder")
+            self._upload_dir(self.remote_home, self.stage_area)
+
+    def _upload_dir(self, remote, local):
+        for obj in Path(local).iterdir():
+            if obj.is_dir():
+                new_remote = f"{remote}/{obj.name}"
+                new_local = str(obj)
+                self._mkdirs(f"{remote}/{obj.name}")
+                self._upload_dir(new_remote, new_local)
+            else:
+                with open(obj, "rb") as f:
+                    self._upload_object(path=f"{remote}/{obj.name}", f=f)
+
 
 class WorkspaceLocation(RemoteLocation):
     def __init__(self, stage_area: str):
         super().__init__(stage_area)
         self.remote_home_to_base = f".spetlr/test/{self.date}"
-        self.remote_home = PosixPath(f"/Workspace/Users/{DbCli().whoami()}")
+        self.remote_home = PosixPath(f"/Workspace/Users/{self.me}")
 
     def remote_base(self) -> str:
         return str(self.remote_home / self.remote_home_to_base)
 
-    def upload(self, dry_run=False):
-        command = f"workspace import-dir {self.stage_area} {self.remote_home}"
-        print("Now uploading test job folder")
-        if dry_run:
-            print("Action skipped for dry-run:")
-            print(f">> databricks {command}")
-        else:
-            self._dbcli.dbcall(command)
+    def _mkdirs(self, path: str):
+        self._dbwsc.workspace.mkdirs(path)
+
+    def _upload_object(self, path: str, f: BinaryIO):
+        content = base64.b64encode(f.read()).decode()
+        self._dbwsc.workspace.import_(
+            path=path, content=content, format=workspace.ImportFormat.AUTO
+        )
 
 
 class DbfsLocation(RemoteLocation):
     def __init__(self, stage_area: str):
         super().__init__(stage_area)
         self.date = self.date.replace(":", ".")
-        self.remote_home_to_base = f"spetlr/test/{DbCli().whoami()}/{self.date}"
+        self.remote_home_to_base = f"spetlr/test/{self.me}/{self.date}"
         self.remote_home = PosixPath("dbfs:/")
 
     def remote_base(self) -> str:
         return str(self.remote_home / self.remote_home_to_base)
 
-    def upload(self, dry_run=False):
-        command = f"fs cp --recursive {self.stage_area} {self.remote_home}"
-        print("Now uploading test job folder")
-        if dry_run:
-            print("Action skipped for dry-run:")
-            print(f">> databricks {command}")
-        else:
-            self._dbcli.dbcall(command)
+    def _mkdirs(self, path: str):
+        self._dbwsc.dbfs.mkdirs(path)
+
+    def _upload_object(self, path: str, f: BinaryIO):
+        self._dbwsc.dbfs.upload(path=path, src=f)

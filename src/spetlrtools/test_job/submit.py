@@ -210,7 +210,6 @@ def collect_arguments(args):
 
 def submit_main(args):
     """the main function of the cli command 'submit'. Not to be used directly."""
-    DbCli().check_connection()
 
     args = collect_arguments(args)
 
@@ -287,7 +286,7 @@ class PoolBoy:
 
     def get_instance_pools(self) -> Dict[str, str]:
         pool_lookup = {
-            pool["instance_pool_name"]: pool["instance_pool_id"]
+            pool.instance_pool_name: pool.instance_pool_id
             for pool in DbCli().list_instance_pools()
         }
         return pool_lookup
@@ -433,22 +432,15 @@ def submit(
 
         try:
             print("Submitting job...")
-            res = dbcli.submit_run_file(jobfile, dry_run=dry_run)
+            run_id = dbcli.submit(workflow, dry_run=dry_run)
         except subprocess.CalledProcessError:
             print("Json contents:")
             print(json.dumps(workflow, indent=4))
             raise
 
-    try:
-        run_id = res["run_id"]
-    except KeyError:
-        print(res)
-        raise
-
     # now we have the run_id
     print(f"Started run with ID {run_id}")
-    details = dbcli.get_run(run_id)
-    print(f"Follow job details at {details['run_page_url']}")
+    print(f"Follow job details at {dbcli.get_run(run_id).run_page_url}")
 
     if out_json:
         json.dump({"run_id": run_id}, out_json)
