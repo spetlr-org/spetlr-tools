@@ -55,7 +55,7 @@ class RemoteLocation:
 
     def __init__(self, stage_area: str):
         self.stage_area = Path(stage_area)
-        self._dbwsc = DbCli().w
+        self._dbwsc = DbCli().get_client()
         self.me = self._dbwsc.current_user.me().user_name
         self.remote_home_to_base = ""
         self.remote_home = PosixPath()

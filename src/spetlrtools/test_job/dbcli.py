@@ -1,7 +1,7 @@
 import os
 import shutil
 import sys
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import jobs
@@ -16,22 +16,28 @@ def _try_resolve(obj: Any, key: str):
 
 
 class DbCli:
-    w = WorkspaceClient()
+    w: Optional[WorkspaceClient] = None
+
+    @classmethod
+    def get_client(cls) -> WorkspaceClient:
+        if cls.w is None:
+            cls.w = WorkspaceClient()
+        return cls.w
 
     def whoami(self) -> str:
-        return self.w.current_user.me().user_name
+        return self.get_client().current_user.me().user_name
 
     def cancel_run(self, run_id: int) -> None:
-        self.w.jobs.cancel_run(run_id)
+        self.get_client().jobs.cancel_run(run_id)
 
     def get_run(self, run_id: int) -> jobs.Run:
-        return self.w.jobs.get_run(run_id)
+        return self.get_client().jobs.get_run(run_id)
 
     def get_run_output(self, run_id: int) -> jobs.RunOutput:
-        return self.w.jobs.get_run_output(run_id)
+        return self.get_client().jobs.get_run_output(run_id)
 
     def list_instance_pools(self) -> Iterator[InstancePoolAndStats]:
-        return self.w.instance_pools.list()
+        return self.get_client().instance_pools.list()
 
     def submit(self, workflow: dict, dry_run=False) -> int:
         if dry_run:
@@ -40,9 +46,9 @@ class DbCli:
             print("Dry run ends here.")
             sys.exit(0)
 
-        return self.w.jobs._api.do("POST", "/api/2.1/jobs/runs/submit", body=workflow)[
-            "run_id"
-        ]
+        return self.get_client().jobs._api.do(
+            "POST", "/api/2.1/jobs/runs/submit", body=workflow
+        )["run_id"]
 
     def execv_run_file(self, file_path: str, dry_run=False):
         databricks = shutil.which("databricks")
