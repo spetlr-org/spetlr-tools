@@ -9,6 +9,8 @@ from typing.io import BinaryIO
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import workspace
 
+from spetlrtools.test_job.dbcli import DbCli
+
 
 class StageArea:
     """
@@ -51,7 +53,7 @@ class RemoteLocation:
 
     def __init__(self, stage_area: str):
         self.stage_area = Path(stage_area)
-        self._dbwsc = WorkspaceClient()
+        self._dbwsc = DbCli().w
         self.me = self._dbwsc.current_user.me().user_name
         self.date = datetime.datetime.now().isoformat()
         self.remote_home_to_base = ""
@@ -62,13 +64,14 @@ class RemoteLocation:
         The file is staged. Upload only happens at the end when we call .upload()"""
         source = Path(source)
 
+        stage_dir = self.stage_area / self.remote_home_to_base
         if dir is None:
             target_part = Path(self.remote_home_to_base) / source.parts[-1]
         else:
-            stage_dir = self.stage_area / self.remote_home_to_base / dir
-            stage_dir.mkdir(parents=True, exist_ok=True)
-
+            stage_dir = stage_dir / dir
             target_part = Path(self.remote_home_to_base) / dir / source.parts[-1]
+
+        stage_dir.mkdir(parents=True, exist_ok=True)
 
         shutil.copy(source, self.stage_area / target_part)
         return str(self.remote_home / target_part)

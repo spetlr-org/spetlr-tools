@@ -16,16 +16,13 @@ def _try_resolve(obj: Any, key: str):
 
 
 class DbCli:
-    w: WorkspaceClient
-
-    def __init__(self):
-        self.w = WorkspaceClient()
+    w = WorkspaceClient()
 
     def whoami(self) -> str:
         return self.w.current_user.me().user_name
 
     def cancel_run(self, run_id: int) -> None:
-        return self.w.jobs.cancel_run(run_id)
+        self.w.jobs.cancel_run(run_id)
 
     def get_run(self, run_id: int) -> jobs.Run:
         return self.w.jobs.get_run(run_id)
