@@ -92,7 +92,6 @@ class JobSumitToolTest(unittest.TestCase):
             cluster={"dummy": "value"},
             wheels="dist/*.whl",
             upload_to="dbfs",
-            no_wait=True,
         )
         args, kwargs = DbCli.w.jobs._api.do.call_args
         body_arg = kwargs["body"]

@@ -1,7 +1,7 @@
 """
 usage: spetlr-test-job submit [-h] [--dry-run] [--wheels WHEELS] --tests TESTS [--task TASK] [--tasks-from TASKS_FROM] (--cluster CLUSTER | --cluster-file CLUSTER_FILE)
                               [--sparklibs SPARKLIBS | --sparklibs-file SPARKLIBS_FILE] [--requirement REQUIREMENT | --requirements-file REQUIREMENTS_FILE] [--main-script MAIN_SCRIPT] [--pytest-args PYTEST_ARGS]
-                              [--out-json OUT_JSON] [--no-wait]
+                              [--out-json OUT_JSON] [--wait-for-job]
 
 Run Test Cases on databricks cluster.
 
@@ -31,7 +31,7 @@ optional arguments:
   --out-json OUT_JSON   File to store the RunID for future queries.
   --upload-to {workspace,dbfs}
                         Where to upload test job files.
-  --no-wait             After submission, return, and don't wait for result.
+  --wait-for-job        After submission, wait for result using cli v2.
 
 
 """
@@ -168,9 +168,9 @@ def setup_submit_parser(subparsers):
     )
 
     parser.add_argument(
-        "--no-wait",
+        "--wait-for-job",
         action="store_true",
-        help="After submission, return, and don't wait for result.",
+        help="After submission, wait for result using cli v2.",
     )
     parser.add_argument("--wait", action=DeprecatedAction, help=argparse.SUPPRESS)
 
@@ -226,7 +226,7 @@ def submit_main(args):
         pytest_args=args.pytest_args,
         dry_run=args.dry_run,
         upload_to=args.upload_to,
-        no_wait=args.no_wait,
+        wait_for_job=args.wait_for_job,
     )
 
 
@@ -305,7 +305,7 @@ def submit(
     pytest_args: List[str] = None,
     dry_run=False,
     upload_to="dbfs",
-    no_wait=False,
+    wait_for_job=False,
 ):
     """
     --dry-run             Don't do anything, only report
@@ -332,7 +332,7 @@ def submit(
     --out-json OUT_JSON   File to store the RunID for future queries.
     --upload-to {workspace,dbfs}
                           Where to upload test job files.
-    --no-wait             After submission, return, and don't wait for result.
+    --wait-for-job        After submission, wait for result using cli v2.
     """
     if requirement is None:
         requirement = []
@@ -424,7 +424,7 @@ def submit(
 
         remote.upload(dry_run)
 
-        if not no_wait:
+        if wait_for_job:
             print("handing control to databricks jobs submit ...")
             dbcli.execv_run_file(jobfile, dry_run=dry_run)
             # the above function ends python and does not return
