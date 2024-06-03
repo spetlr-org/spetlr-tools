@@ -11,6 +11,14 @@ from databricks.sdk.service import workspace
 
 
 class StageArea:
+    """
+    The stage are is either a temp-dir which is cleaned after the run, or, if --dry-run is used,
+    the stage area is a local folder whose contents can be inspected for debug purposes.
+
+    In the stage area, the main.py, the libraries and the job.json are collected before submission
+    of the job.
+    """
+
     def __init__(self, dry_run=False):
         self.dry_run = dry_run
         self._tmpdir = None
@@ -71,9 +79,11 @@ class RemoteLocation:
         local: str
 
     def _mkdirs(self, path: str):
+        """Depending on the selected remote, use the dbfs or the workspace api"""
         raise NotImplementedError()
 
     def _upload_object(self, path: str, f: BinaryIO):
+        """Depending on the selected remote, use the dbfs or the workspace api"""
         raise NotImplementedError()
 
     def new_local_file(self, name: str) -> FileRef:
@@ -94,6 +104,7 @@ class RemoteLocation:
         raise NotImplementedError()
 
     def upload(self, dry_run=False):
+        """Upload the staging area to databricks, either under dbfs root or under the workspace home folder."""
         if dry_run:
             print("Not uploading test job folder - Action skipped for dry-run.")
         else:
@@ -101,6 +112,7 @@ class RemoteLocation:
             self._upload_dir(self.remote_home, self.stage_area)
 
     def _upload_dir(self, remote, local):
+        """recursively upload directories and files."""
         for obj in Path(local).iterdir():
             if obj.is_dir():
                 new_remote = f"{remote}/{obj.name}"
@@ -113,6 +125,8 @@ class RemoteLocation:
 
 
 class WorkspaceLocation(RemoteLocation):
+    """Use the Workspace API for remote files."""
+
     def __init__(self, stage_area: str):
         super().__init__(stage_area)
         self.remote_home_to_base = f".spetlr/test/{self.date}"
@@ -132,6 +146,8 @@ class WorkspaceLocation(RemoteLocation):
 
 
 class DbfsLocation(RemoteLocation):
+    """Use the DBFS API for remote files."""
+
     def __init__(self, stage_area: str):
         super().__init__(stage_area)
         self.date = self.date.replace(":", ".")

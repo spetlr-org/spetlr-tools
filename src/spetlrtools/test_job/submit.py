@@ -447,6 +447,7 @@ def submit(
 
 
 def discover_wheels(globpath: str, remote: RemoteLocation) -> List[str]:
+    """Find all wheel files in the globpath and add them to the remote location."""
     result = []
     for item in Path().glob(globpath):
         result.append(remote.add_local_path(str(item), "libs"))
@@ -455,6 +456,7 @@ def discover_wheels(globpath: str, remote: RemoteLocation) -> List[str]:
 
 
 def prepare_archive(test_path: str, remote: RemoteLocation):
+    """Zip the test archive and add it to the staging area"""
     print(f"now archiving {test_path}")
 
     with tempfile.TemporaryDirectory() as tempdir:
