@@ -1,7 +1,7 @@
 """
 usage: spetlr-test-job submit [-h] [--dry-run] [--wheels WHEELS] --tests TESTS [--task TASK] [--tasks-from TASKS_FROM] (--cluster CLUSTER | --cluster-file CLUSTER_FILE)
                               [--sparklibs SPARKLIBS | --sparklibs-file SPARKLIBS_FILE] [--requirement REQUIREMENT | --requirements-file REQUIREMENTS_FILE] [--main-script MAIN_SCRIPT] [--pytest-args PYTEST_ARGS]
-                              [--out-json OUT_JSON] [--wait WAIT]
+                              [--out-json OUT_JSON] [--wait-for-job]
 
 Run Test Cases on databricks cluster.
 
@@ -29,28 +29,40 @@ optional arguments:
   --pytest-args PYTEST_ARGS
                         Additional arguments to pass to pytest in each test job.
   --out-json OUT_JSON   File to store the RunID for future queries.
-  --wait WAIT           After upload, wait this many seconds for it to settle.
+  --upload-to {workspace,dbfs}
+                        Where to upload test job files.
+  --wait-for-job        After submission, wait for result using cli v2.
+
 
 """
 
 import argparse
-import copy
-import datetime
 import inspect
 import json
 import re
 import shutil
 import subprocess
 import tempfile
-import time
-import uuid
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import Dict, List, Union
 from typing.io import IO
 
-from . import test_main
-from .dbcli import dbcli
-from .dbfs import DbfsLocation
+from spetlrtools.test_job import test_main
+from spetlrtools.test_job.dbcli import DbCli
+from spetlrtools.test_job.RemoteLocation import (
+    DbfsLocation,
+    RemoteLocation,
+    StageArea,
+    WorkspaceLocation,
+)
+
+
+# Custom action to handle the deprecation warning
+class DeprecatedAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        print(
+            f"WARNING: {option_string} is deprecated and will be removed in future versions."
+        )
 
 
 def setup_submit_parser(subparsers):
@@ -149,11 +161,18 @@ def setup_submit_parser(subparsers):
     )
 
     parser.add_argument(
-        "--wait",
-        type=int,
-        help="After upload, wait this many seconds for it to settle.",
-        default=60,
+        "--upload-to",
+        choices=["workspace", "dbfs"],
+        help="Where to upload test job files.",
+        default="dbfs",
     )
+
+    parser.add_argument(
+        "--wait-for-job",
+        action="store_true",
+        help="After submission, wait for result using cli v2.",
+    )
+    parser.add_argument("--wait", action=DeprecatedAction, help=argparse.SUPPRESS)
 
     return
 
@@ -191,7 +210,6 @@ def collect_arguments(args):
 
 def submit_main(args):
     """the main function of the cli command 'submit'. Not to be used directly."""
-    dbcli.check_connection()
 
     args = collect_arguments(args)
 
@@ -207,39 +225,15 @@ def submit_main(args):
         main_script=args.main_script,
         pytest_args=args.pytest_args,
         dry_run=args.dry_run,
-        wait=args.wait,
+        upload_to=args.upload_to,
+        wait_for_job=args.wait_for_job,
     )
 
 
-class DbTestFolder:
-    """Context manager that creates a unique test folder on dbfs."""
+def verify_and_resolve_task(test_path: str, task: Union[str, PosixPath]):
+    test_archive = PosixPath(test_path).resolve().absolute()
 
-    def __init__(self):
-        self._test_path_base = DbfsLocation(
-            "/".join(
-                [
-                    "test",
-                    datetime.datetime.now(datetime.timezone.utc).strftime(
-                        "%Y%m%d-%H%M%S"
-                    ),
-                    uuid.uuid4().hex,
-                ]
-            )
-        )
-
-    def __enter__(self):
-        print(f"Making dbfs test folder {self._test_path_base.remote}")
-        dbcli.dbcall(f"fs mkdirs {self._test_path_base.remote}")
-        return self._test_path_base
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-
-def verify_and_resolve_task(test_path: str, task: Union[str, Path]):
-    test_archive = Path(test_path).resolve().absolute()
-
-    task_path = Path(task)
+    task_path = PosixPath(task)
     if not task_path.is_absolute():
         task_path = (test_archive.parent / task_path).resolve().absolute()
 
@@ -263,7 +257,7 @@ def discover_job_tasks(test_path: str, folder: str):
     Returns a list of strings with the subfolders to process.
     """
 
-    test_archive_parent = Path(test_path).resolve().absolute().parent
+    test_archive_parent = PosixPath(test_path).resolve().absolute().parent
 
     subfolders = [
         verify_and_resolve_task(test_path, x)
@@ -292,8 +286,8 @@ class PoolBoy:
 
     def get_instance_pools(self) -> Dict[str, str]:
         pool_lookup = {
-            pool["instance_pool_name"]: pool["instance_pool_id"]
-            for pool in dbcli.list_instance_pools()
+            pool.instance_pool_name: pool.instance_pool_id
+            for pool in DbCli().list_instance_pools()
         }
         return pool_lookup
 
@@ -310,7 +304,8 @@ def submit(
     main_script: IO[str] = None,
     pytest_args: List[str] = None,
     dry_run=False,
-    wait=60,
+    upload_to="dbfs",
+    wait_for_job=False,
 ):
     """
     --dry-run             Don't do anything, only report
@@ -335,7 +330,9 @@ def submit(
     --pytest-args PYTEST_ARGS
                           Additional arguments to pass to pytest in each test job.
     --out-json OUT_JSON   File to store the RunID for future queries.
-    --wait WAIT           After upload, wait this many seconds for it to settle.
+    --upload-to {workspace,dbfs}
+                          Where to upload test job files.
+    --wait-for-job        After submission, wait for result using cli v2.
     """
     if requirement is None:
         requirement = []
@@ -349,6 +346,7 @@ def submit(
         tasks_from = []
     if not (tasks or tasks_from):
         raise ValueError("No tasks given")
+    upload_to = upload_to.lower()
 
     # check the structure of the cluster object
     if not isinstance(cluster, dict):
@@ -361,24 +359,24 @@ def submit(
     for py_requirement in requirement:
         sparklibs.append({"pypi": {"package": py_requirement}})
 
-    pools = PoolBoy()
+    dbcli = DbCli()
 
-    with DbTestFolder() as test_folder:
-        for wheel in discover_and_push_wheels(wheels, test_folder):
+    # create everything in a temporary directory.
+    # for dry-runs, keep make it a local directory and keep it
+    with StageArea(dry_run) as stage:
+        if upload_to == "workspace":
+            remote: RemoteLocation = WorkspaceLocation(stage)
+        elif upload_to == "dbfs":
+            remote: RemoteLocation = DbfsLocation(stage)
+        else:
+            raise ValueError("unsupported upload")
+
+        wheels = discover_wheels(wheels, remote)
+        for wheel in wheels:
             sparklibs.append({"whl": wheel})
 
-        archive_local = archive_and_push(test_path, test_folder, dry_run=dry_run)
-        main_file = push_main_file(test_folder, main_script, dry_run=dry_run)
-
-        print(f"copied everything to {test_folder.remote}")
-
-        if not dry_run:
-            print(f"Wait {wait}s for uploading test folder...")
-            time.sleep(wait)
-            print(f"Waited {wait}s successfully!")
-
-        # construct the workflow object
-        workflow = dict(run_name="Testing Run", format="MULTI_TASK", tasks=[])
+        prepare_archive(test_path, remote)
+        main_file = prepare_main_file(remote, main_script)
 
         resolved_tasks = [verify_and_resolve_task(test_path, task) for task in tasks]
         for task in tasks_from:
@@ -388,31 +386,26 @@ def submit(
         if dry_run:
             print(resolved_tasks)
 
-        for task in resolved_tasks:
-            task_sub = re.sub(r"[^a-zA-Z0-9_-]", "_", task)
+        if "instance_pool_id" in cluster:
+            cluster["instance_pool_id"] = PoolBoy().lookup(cluster["instance_pool_id"])
 
-            # prepare cluster
-            task_cluster = copy.deepcopy(cluster)
-            task_cluster["cluster_log_conf"] = {
-                "dbfs": {"destination": f"{test_folder.remote}/{task_sub}"}
-            }
-            if "instance_pool_id" in task_cluster:
-                task_cluster["instance_pool_id"] = pools.lookup(
-                    task_cluster["instance_pool_id"]
-                )
+        # construct the workflow object
+        workflow = dict(run_name="Testing Run", format="MULTI_TASK", tasks=[])
+
+        for task in resolved_tasks:
+            # construct a task name from the test task file path
+            task_sub = re.sub(r"[^a-zA-Z0-9_-]", "_", task)
 
             workflow["tasks"].append(
                 dict(
                     task_key=task_sub,
                     libraries=sparklibs,
                     spark_python_task=dict(
-                        python_file=main_file.remote,
+                        python_file=main_file,
                         parameters=[
                             # running in the spark python interpreter, the python __file__ variable does not
                             # work. Hence, we need to tell the script where the test area is.
-                            f"--basedir={test_folder.local}/{task_sub}",
-                            # all tests will be unpacked from here
-                            f"--archive={archive_local}",
+                            f"--basedir={remote.remote_base()}",
                             # we can actually run any part of our test suite, but some files need the full repo.
                             # Only run tests from this folder.
                             f"--folder={task}",
@@ -420,95 +413,78 @@ def submit(
                             f"--pytestargs={json.dumps(pytest_args)}",
                         ],
                     ),
-                    new_cluster=task_cluster,
+                    new_cluster=cluster,
                 )
             )
 
-    print("Submitting test...")
-    with tempfile.TemporaryDirectory() as tmp:
-        jobfile = f"{tmp}/job.json"
+        jobfile = remote.new_local_file("job.json").local
 
         with open(jobfile, "w") as f:
-            json.dump(workflow, f)
+            json.dump(workflow, f, indent=2)
 
-        if dry_run:
-            with open(jobfile) as f:
-                print("DEBUG: workflow:")
-                print(f.read())
+        remote.upload(dry_run)
+
+        if wait_for_job:
+            print("handing control to databricks jobs submit ...")
+            dbcli.execv_run_file(jobfile, dry_run=dry_run)
+            # the above function ends python and does not return
+            return
 
         try:
-            if not dry_run:
-                res = dbcli.submit_run_file(jobfile)
-            else:
-                print(f"DRY-RUN: Call: databricks runs submit --json-file {jobfile}")
-                print("DRY-RUN COMPLETED")
-                return
+            print("Submitting job...")
+            run_id = dbcli.submit(workflow, dry_run=dry_run)
         except subprocess.CalledProcessError:
             print("Json contents:")
             print(json.dumps(workflow, indent=4))
             raise
 
-        try:
-            run_id = res["run_id"]
-        except KeyError:
-            print(res)
-            raise
-
     # now we have the run_id
     print(f"Started run with ID {run_id}")
-    details = dbcli.get_run(run_id)
-    print(f"Follow job details at {details['run_page_url']}")
+    print(f"Follow job details at {dbcli.get_run(run_id).run_page_url}")
 
     if out_json:
         json.dump({"run_id": run_id}, out_json)
 
 
-def discover_and_push_wheels(globpath: str, test_folder: DbfsLocation) -> List[str]:
+def discover_wheels(globpath: str, remote: RemoteLocation) -> List[str]:
+    """Find all wheel files in the globpath and add them to the remote location."""
     result = []
     for item in Path().glob(globpath):
-        remote_path = f"{test_folder.remote}/{item.parts[-1]}"
-        print(f"pushing {item} to test folder")
-        dbcli.dbcall(f"fs cp {item} {remote_path}")
-        result.append(remote_path)
+        result.append(remote.add_local_path(str(item), "libs"))
 
     return result
 
 
-def archive_and_push(test_path: str, test_folder: DbfsLocation, dry_run=False):
-    with tempfile.TemporaryDirectory() as tmp:
-        test_path = Path(test_path)
-        print(f"now archiving {test_path}")
-        archive_path = shutil.make_archive(
-            str(Path(tmp) / "tests"),
+def prepare_archive(test_path: str, remote: RemoteLocation):
+    """Zip the test archive and add it to the staging area"""
+    print(f"now archiving {test_path}")
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        real_archive_path = shutil.make_archive(
+            str(Path(tempdir) / "tests"),
             "zip",
-            test_path / "..",
-            base_dir=test_path.parts[-1],
+            Path(test_path) / "..",
+            base_dir=Path(test_path).parts[-1],
         )
-        print("now pushing test archive to test folder")
 
-        if not dry_run:
-            dbcli.dbcall(f"fs cp {archive_path} {test_folder.remote}/tests.zip")
+        # it seems the doing a workspace import-dir on a zip archive will unpack it locally to upload.
+        # so we need to trick it by renaming the file
+        renamed_archive_path = Path(real_archive_path).with_suffix(".archive")
+        shutil.move(real_archive_path, renamed_archive_path)
+
+        return remote.add_local_path(str(renamed_archive_path))
+
+
+def prepare_main_file(remote: RemoteLocation, main_script: IO[str] = None) -> str:
+    print("now preparing test main file")
+
+    main_ref = remote.new_local_file("main.py")
+
+    with open(main_ref.local, "w") as f:
+        if main_script:
+            f.write(main_script.read())
         else:
-            print(
-                f"DRY-RUN: Call: dbfs cp {archive_path} {test_folder.remote}/tests.zip"
-            )
-    return f"{test_folder.local}/tests.zip"
+            print("Using default main script test_main.py")
+            f.write(inspect.getsource(test_main))
 
-
-def push_main_file(
-    test_folder: DbfsLocation, main_script: IO[str] = None, dry_run=False
-) -> DbfsLocation:
-    print("now pushing test main file")
-    main_file = test_folder / "main.py"
-    with tempfile.TemporaryDirectory() as tmp:
-        with open(Path(tmp) / "main.py", "w") as f:
-            if main_script:
-                f.write(main_script.read())
-            else:
-                print("Using default main script test_main.py")
-                f.write(inspect.getsource(test_main))
-        if not dry_run:
-            dbcli.dbcall(f"fs cp {tmp}/main.py {main_file.remote}")
-        else:
-            print(f"DRY-RUN: Call: dbfs cp {tmp}/main.py {main_file.remote}")
-    return main_file
+    return main_ref.remote

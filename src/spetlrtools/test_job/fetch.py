@@ -14,7 +14,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import IO, List, Optional
 
-from spetlrtools.test_job.dbcli import dbcli
+from databricks.sdk.service import jobs
+
 from spetlrtools.test_job.RunDetails import RunDetails
 
 
@@ -73,7 +74,6 @@ def fetch_main(args):
     :param args: the parsed arguments from the fetch subparser
     :return:
     """
-    dbcli.check_connection()
 
     # Post process the arguments
     if args.runid is None:
@@ -84,90 +84,18 @@ def fetch_main(args):
         sys.exit(-1)
 
 
-@dataclass
-class TaskState:
-    """The result state of any workflow or task"""
-
-    task_key: str
-    life_cycle_state: str
-    result_state: str
-    end_time: int
-
-    @property
-    def ended(self):
-        """Has the workflow or task ended?"""
-        return self.end_time != 0
-
-    @property
-    def result(self):
-        """String representing the state of the workflow or task."""
-        if not self.ended:
-            return self.life_cycle_state
-        else:
-            return self.result_state
-
-    @property
-    def success(self):
-        """Has the workflow or task succeeded?"""
-        return self.result_state.upper() == "SUCCESS"
-
-    @classmethod
-    def fromJson(cls, jobj):
-        """Create the result state of the workflow or task from the json object
-        returned by the databricks api."""
-        state = jobj["state"]
-        return cls(
-            task_key=jobj["task_key"] if "task_key" in jobj else jobj["run_name"],
-            life_cycle_state=state["life_cycle_state"],
-            result_state=state["result_state"] if "result_state" in state else "",
-            end_time=jobj["end_time"] if "end_time" in jobj else 0,
-        )
-
-
-@dataclass
-class MultiTaskState:
-    """Result state of a multiTask workflow"""
-
-    overall: Optional[TaskState]
-    tasks: List[TaskState]
-
-    @classmethod
-    def fromJson(cls, jobj):
-        """Create the Result state of a multiTask workflow from the json object returned
-        by the databricks api."""
-
-        return cls(
-            overall=TaskState.fromJson(jobj),
-            tasks=[TaskState.fromJson(task) for task in jobj["tasks"]],
-        )
-
-    def accumulate(self):
-        """return a dictionary of {'STATE STRING':counts} where counts represents the
-        number of sub-tasks that share the same run state."""
-        counts = defaultdict(int)
-        for task in self.tasks:
-            counts[task.result] += 1
-        return counts
-
-    def print_status(self):
-        """Print the overall result state represented by this object."""
-        print(
-            "Overall state:",
-            self.overall.result,
-            "| Task states:",
-            " | ".join(f"{k}: {v}" for k, v in self.accumulate().items()),
-        )
-
-
 def fetch(run_id: int, stdout_file: IO[str] = None, failfast=False):
     """Fetch main function.
     See the cli help for parameter descriptions and functionality.
     Can be used programmatically."""
+
     run = RunDetails(run_id)
+
     last_state = None
     stdouts = {}
     while True:
-        state = MultiTaskState.fromJson(run.details)
+        state = MultiTaskState.fromRun(run.details)
+        # state = MultiTaskState.fromJson(run.details.as_dict())
         if last_state is None or state != last_state:
             last_state = state
             state.print_status()
@@ -201,3 +129,97 @@ def fetch(run_id: int, stdout_file: IO[str] = None, failfast=False):
             print("A task failed. Cancelling test run.")
             run.cancel()
         return 1
+
+
+def enumNameOrNone(obj):
+    if obj is None:
+        return ""
+    else:
+        return obj.name
+
+
+@dataclass
+class TaskState:
+    """The result state of any workflow or task"""
+
+    task_key: str
+    life_cycle_state: str
+    result_state: str
+    end_time: int
+
+    @property
+    def ended(self):
+        """Has the workflow or task ended?"""
+        return self.end_time != 0
+
+    @property
+    def result(self):
+        """String representing the state of the workflow or task."""
+        if not self.ended:
+            return self.life_cycle_state
+        else:
+            return self.result_state
+
+    @property
+    def success(self):
+        """Has the workflow or task succeeded?"""
+        return self.result_state.upper() == "SUCCESS"
+
+    @classmethod
+    def fromTask(cls, task: jobs.RunTask):
+        """Create the result state of the workflow or task from the json object
+        returned by the databricks api."""
+
+        return cls(
+            task_key=task.task_key,
+            life_cycle_state=enumNameOrNone(task.state.life_cycle_state),
+            result_state=enumNameOrNone(task.state.result_state),
+            end_time=task.end_time,
+        )
+
+    @classmethod
+    def fromRun(cls, run: jobs.Run):
+        """Create the result state of the workflow or task from the json object
+        returned by the databricks api."""
+
+        return cls(
+            task_key=run.run_name,
+            life_cycle_state=enumNameOrNone(run.state.life_cycle_state),
+            result_state=enumNameOrNone(run.state.result_state),
+            end_time=run.end_time,
+        )
+
+
+@dataclass
+class MultiTaskState:
+    """Result state of a multiTask workflow"""
+
+    overall: Optional[TaskState]
+    tasks: List[TaskState]
+
+    @classmethod
+    def fromRun(cls, run: jobs.Run):
+        """Create the Result state of a multiTask workflow from the json object returned
+        by the databricks api."""
+
+        return cls(
+            overall=TaskState.fromRun(run),
+            tasks=[TaskState.fromTask(task) for task in run.tasks],
+        )
+
+    def accumulate(self):
+        """return a dictionary of {'STATE STRING':counts} where counts represents the
+        number of sub-tasks that share the same run state."""
+        counts = defaultdict(int)
+        for task in self.tasks:
+            counts[task.result] += 1
+        return counts
+
+    def print_status(self):
+        """Print the overall result state represented by this object."""
+        print(
+            "Overall state:",
+            self.overall.result,
+            "| Task states:",
+            " | ".join(f"{k}: {v}" for k, v in self.accumulate().items()),
+        )
