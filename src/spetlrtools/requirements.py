@@ -17,6 +17,45 @@ class LibType(TypedDict):
     version: str
 
 
+class Pipr:
+    def __init__(self, debug_out: TextIOBase = sys.stdout):
+        try:
+            import uv
+
+            self.uv_path = uv.find_uv_bin()
+        except ImportError:
+            self.uv_path = None
+
+        self.debug_out = debug_out
+
+    def venv(self, path: str):
+        if self.uv_path:
+            run([self.uv_path, "venv", "--python", "3.11", "--seed", path])
+        else:
+            run([sys.executable, "-m", "venv", path])
+
+        python = str(Path(path) / "bin" / "python")
+        if not Path(python).exists():
+            python = str(Path(path) / "Scripts" / "python.exe")
+
+        run(
+            [python, "-m", "pip", "install", "uv"],
+            stdout=self.debug_out.buffer,
+        )
+
+        self.uv_path = subprocess.check_output(
+            [python, "-c", "print('hello world')"], text=True
+        ).strip()
+        self.uv_path = subprocess.check_output(
+            [python, "-c", "import uv;print(uv.find_uv_bin())"], text=True
+        ).strip()
+
+    def run(self, *args, **kwargs):
+        if not kwargs:
+            kwargs = dict(stdout=self.debug_out.buffer)
+        return run([self.uv_path, "pip", *args], **kwargs)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Update requirement versions in specified file."
@@ -87,27 +126,19 @@ def freeze_req(
     requirements: str, reject: str = "", debug_out: TextIOBase = sys.stdout
 ) -> List[LibType]:
     pat = re.compile(reject)
+    pipr = Pipr(debug_out=debug_out)
 
     with tempfile.TemporaryDirectory() as td:
-        subprocess.run([sys.executable, "-m", "venv", td])
+        pipr.venv(td)
 
         rf_path = str(Path(td) / "reqs.txt")
         with open(rf_path, "w") as f:
             f.write(requirements)
 
-        python = str(Path(td) / "bin" / "python")
-        if not Path(python).exists():
-            python = str(Path(td) / "Scripts" / "python.exe")
-
-        run(
-            [python, "-m", "pip", "install", "--upgrade", "pip"],
-            stdout=debug_out.buffer,
-        )
-
-        run([python, "-m", "pip", "install", "-r", rf_path], stdout=debug_out.buffer)
-
-        freeze_json = run(
-            [python, "-m", "pip", "list", "--format", "json"],
+        freeze_json = pipr.run(
+            "list",
+            "--format",
+            "json",
             capture_output=True,
             text=True,
         )
