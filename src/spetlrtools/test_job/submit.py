@@ -173,7 +173,12 @@ def setup_submit_parser(subparsers):
         help="After submission, wait for result using cli v2.",
     )
     parser.add_argument("--wait", action=DeprecatedAction, help=argparse.SUPPRESS)
-
+    cluster.add_argument(
+        "--job-name",
+        type=str,
+        default="Testing Run",
+        help="Name of the test run job.",
+    )
     return
 
 
@@ -227,6 +232,7 @@ def submit_main(args):
         dry_run=args.dry_run,
         upload_to=args.upload_to,
         wait_for_job=args.wait_for_job,
+        job_name = args.job_name,
     )
 
 
@@ -306,6 +312,7 @@ def submit(
     dry_run=False,
     upload_to="dbfs",
     wait_for_job=False,
+    job_name = "Testing Run"
 ):
     """
     --dry-run             Don't do anything, only report
@@ -333,6 +340,7 @@ def submit(
     --upload-to {workspace,dbfs}
                           Where to upload test job files.
     --wait-for-job        After submission, wait for result using cli v2.
+    --job-name            Name of the test run job, default "Testing Run"
     """
     if requirement is None:
         requirement = []
@@ -390,7 +398,7 @@ def submit(
             cluster["instance_pool_id"] = PoolBoy().lookup(cluster["instance_pool_id"])
 
         # construct the workflow object
-        workflow = dict(run_name="Testing Run", format="MULTI_TASK", tasks=[])
+        workflow = dict(run_name=job_name, format="MULTI_TASK", tasks=[])
 
         for task in resolved_tasks:
             # construct a task name from the test task file path
