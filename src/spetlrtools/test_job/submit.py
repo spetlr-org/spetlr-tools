@@ -232,7 +232,7 @@ def submit_main(args):
         dry_run=args.dry_run,
         upload_to=args.upload_to,
         wait_for_job=args.wait_for_job,
-        job_name = args.job_name,
+        job_name=args.job_name,
     )
 
 
@@ -312,7 +312,7 @@ def submit(
     dry_run=False,
     upload_to="dbfs",
     wait_for_job=False,
-    job_name = "Testing Run"
+    job_name="Testing Run",
 ):
     """
     --dry-run             Don't do anything, only report
