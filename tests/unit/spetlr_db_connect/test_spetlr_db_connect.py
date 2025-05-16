@@ -1,8 +1,8 @@
-import unittest
 import os
 import tempfile
-import winreg
+import unittest
 from unittest.mock import patch
+
 from click.testing import CliRunner
 
 from spetlrtools.spetlr_db_connect.spetlr_db_connect import (
