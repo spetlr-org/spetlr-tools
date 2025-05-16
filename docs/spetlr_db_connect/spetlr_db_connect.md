@@ -79,13 +79,6 @@ Remove all related environment variables:
 spetlr-dbconnect-cli --cleanup-env-vars
 ```
 
-#### 4. Immediate verification  
-Run any command under the newly configured environment in one go:
-```bash
-spetlr-dbconnect-cli --enable-connect -- python -c "import os; print(os.environ['SPETLR_DATABRICKS_CONNECT'])"
-# → true
-```
-
 ---
 
 ## Restart / Shell-Reload Note
