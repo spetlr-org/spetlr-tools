@@ -1,6 +1,3 @@
-import sys
-import types
-
 import click
 
 try:
@@ -9,7 +6,7 @@ except ImportError:
     winreg = None
 
 
-# On non-Windows, make sure there is a winreg module so tests can patch it
+# On Windows, manage user-level environment variables via the registry
 
 
 def set_user_env_var_windows(name: str, value: str):
