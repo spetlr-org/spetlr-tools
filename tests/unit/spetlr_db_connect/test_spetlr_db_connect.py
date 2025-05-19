@@ -66,17 +66,18 @@ class TestSpetlrDbConnect(unittest.TestCase):
         # Patch winreg for Windows-variable setting
         self.dummy = DummyRegistry()
         self.win_patches = [
-            patch("winreg.OpenKey", new=self.dummy.OpenKey),
+            patch("winreg.OpenKey", new=self.dummy.OpenKey, create=True),
             patch(
                 "winreg.SetValueEx",
                 new=lambda key, name, res, typ, val: key.SetValueEx(
                     name, res, typ, val
                 ),
+                create=True,
             ),
-            patch("winreg.CloseKey", new=lambda key: key.Close()),
-            patch("winreg.HKEY_CURRENT_USER", new=object()),
-            patch("winreg.KEY_SET_VALUE", new=0x0002),
-            patch("winreg.REG_EXPAND_SZ", new=1),
+            patch("winreg.CloseKey", new=lambda key: key.Close(), create=True),
+            patch("winreg.HKEY_CURRENT_USER", new=object(), create=True),
+            patch("winreg.KEY_SET_VALUE", new=0x0002, create=True),
+            patch("winreg.REG_EXPAND_SZ", new=1, create=True),
         ]
         for p in self.win_patches:
             p.start()
