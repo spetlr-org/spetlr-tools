@@ -10,11 +10,6 @@ except ImportError:
 
 
 # On non-Windows, make sure there is a winreg module so tests can patch it
-try:
-    import winreg
-except ImportError:
-    winreg = types.ModuleType("winreg")
-    sys.modules["winreg"] = winreg
 
 
 def set_user_env_var_windows(name: str, value: str):

@@ -1,5 +1,7 @@
 import os
+import sys
 import tempfile
+import types
 import unittest
 from unittest.mock import patch
 
@@ -14,6 +16,10 @@ from spetlrtools.spetlr_db_connect.spetlr_db_connect_utils_posix import (
 from spetlrtools.spetlr_db_connect.spetlr_db_connect_utils_win import (
     set_user_env_var_windows,
 )
+
+# On Linux there's no winreg—create a dummy module so that patch("winreg.…") works
+if "winreg" not in sys.modules:
+    sys.modules["winreg"] = types.ModuleType("winreg")
 
 
 class DummyKey:
