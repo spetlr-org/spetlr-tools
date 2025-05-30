@@ -60,7 +60,7 @@ class DataframeTestCase(unittest.TestCase):
                                 )
                                 for sub_row in row[i]
                             ]
-                            
+
                 # move every datetime item to UTC time zone. This allows for exact comparison
                 for row in assert_df:
                     if isinstance(row[i], datetime.datetime):
