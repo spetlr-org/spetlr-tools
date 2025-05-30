@@ -49,8 +49,18 @@ class DataframeTestCase(unittest.TestCase):
                         elif isinstance(
                             schema_fields[col].dataType.elementType, StructType
                         ):
-                            row[i] = [tuple(sub_row) for sub_row in row[i]]
-
+                            row[i] = [
+                                tuple(
+                                    (
+                                        field.astimezone(datetime.timezone.utc)
+                                        if isinstance(field, datetime.datetime)
+                                        else field
+                                    )
+                                    for field in sub_row
+                                )
+                                for sub_row in row[i]
+                            ]
+                            
                 # move every datetime item to UTC time zone. This allows for exact comparison
                 for row in assert_df:
                     if isinstance(row[i], datetime.datetime):
