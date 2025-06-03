@@ -11,7 +11,7 @@ $databricksName               = $resourceName
 
 # Use eastus because of free azure subscription
 # note, we no longer use a free subscription
-$location                     = "westeurope"
+$location                     = "swedencentral"
 
 $resourceTags = @{
   "Owner"      = "Auto Deployed"
