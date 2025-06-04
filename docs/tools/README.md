@@ -34,7 +34,7 @@ OUTPUT: True
 *This is just a tool for investigating - not for production purposes.*
 
 Some files - like eventhub capture files - contains a binary encoded *Body* column. 
-The `ExtractEventhubBody` class can help decode the column.
+The `ExtractEventhubBody` or `ExtractEncodedBodyUC` class can help decode the column.
 Either one can get the encoded schema as a json schema (`extract_json_schema`) or 
 transform the dataframe using `transform_df`.
 
