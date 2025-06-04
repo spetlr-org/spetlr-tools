@@ -13,10 +13,10 @@ from pyspark.sql.types import (
 )
 from spetlr.spark import Spark
 
-from spetlrtools.helpers.ExtractEncodedBody import ExtractEncodedBody
+from spetlrtools.helpers.ExtractEncodedBodyUC import ExtractEncodedBodyUC
 
 
-class ExtractEncodedBodyTest(unittest.TestCase):
+class ExtractEncodedBodyTestUC(unittest.TestCase):
     # Encode binary data
     binary_data1 = json.dumps({"a": "text", "b": 1, "c": False, "d": 2.5}).encode(
         "utf-8"
@@ -27,10 +27,12 @@ class ExtractEncodedBodyTest(unittest.TestCase):
 
     # The expected schema extracted from the above binary encoded data
     expected_schema = (
-        '{"type": "struct", "fields": [{"name": "a", "type": "string", "nullable": true, '
-        '"metadata": {}}, {"name": "b", "type": "long", "nullable": true, "metadata": {}}, '
-        '{"name": "c", "type": "boolean", "nullable": true, "metadata": {}}, {"name": "d", '
-        '"type": "double", "nullable": true, "metadata": {}}]}'
+        '{"type": "struct", "fields": [{"name": "Body", "type": {"type": "struct", '
+        '"fields": [{"name": "a", "type": "string", "nullable": true, "metadata": '
+        '{}}, {"name": "b", "type": "long", "nullable": true, "metadata": {}}, '
+        '{"name": "c", "type": "boolean", "nullable": true, "metadata": {}}, {"name": '
+        '"d", "type": "double", "nullable": true, "metadata": {}}]}, "nullable": '
+        'true, "metadata": {}}]}'
     )
 
     # expected_schema = json.loads(expected_schema)
@@ -39,26 +41,36 @@ class ExtractEncodedBodyTest(unittest.TestCase):
     "type": "struct",
     "fields": [
         {
-            "name": "a",
-            "type": "string",
-            "nullable": true,
-            "metadata": {}
-        },
-        {
-            "name": "b",
-            "type": "long",
-            "nullable": true,
-            "metadata": {}
-        },
-        {
-            "name": "c",
-            "type": "boolean",
-            "nullable": true,
-            "metadata": {}
-        },
-        {
-            "name": "d",
-            "type": "double",
+            "name": "Body",
+            "type": {
+                "type": "struct",
+                "fields": [
+                    {
+                        "name": "a",
+                        "type": "string",
+                        "nullable": true,
+                        "metadata": {}
+                    },
+                    {
+                        "name": "b",
+                        "type": "long",
+                        "nullable": true,
+                        "metadata": {}
+                    },
+                    {
+                        "name": "c",
+                        "type": "boolean",
+                        "nullable": true,
+                        "metadata": {}
+                    },
+                    {
+                        "name": "d",
+                        "type": "double",
+                        "nullable": true,
+                        "metadata": {}
+                    }
+                ]
+            },
             "nullable": true,
             "metadata": {}
         }
@@ -89,16 +101,16 @@ class ExtractEncodedBodyTest(unittest.TestCase):
     df_input = Spark.get().createDataFrame(data=data1, schema=schema1)
 
     # Initialize extractor
-    extractor = ExtractEncodedBody()
+    extractor = ExtractEncodedBodyUC()
 
     # Initialize extractor with data limit
-    extractor_limit = ExtractEncodedBody(data_limit=1)
+    extractor_limit = ExtractEncodedBodyUC(data_limit=1)
 
     # Initialize a bad extractor. The Unknown_col is not in the input data.
-    extractor_bad = ExtractEncodedBody("Unkown_col")
+    extractor_bad = ExtractEncodedBodyUC("Unkown_col")
 
     # Initialize an extractor with a new column for extracted body.
-    extractor_new_field = ExtractEncodedBody(new_column_w_extracted_body="BodyNew")
+    extractor_new_field = ExtractEncodedBodyUC(new_column_w_extracted_body="BodyNew")
 
     # Expected schema when the body is extracted to a new column.
     expected_transformed_schema_w_new_col = StructType(
@@ -121,10 +133,18 @@ class ExtractEncodedBodyTest(unittest.TestCase):
     # pyspark schema of the body
     body_pyspark_schema = StructType(
         [
-            StructField("a", StringType(), True),
-            StructField("b", LongType(), True),
-            StructField("c", BooleanType(), True),
-            StructField("d", DoubleType(), True),
+            StructField(
+                "Body",
+                StructType(
+                    [
+                        StructField("a", StringType(), True),
+                        StructField("b", LongType(), True),
+                        StructField("c", BooleanType(), True),
+                        StructField("d", DoubleType(), True),
+                    ]
+                ),
+                True,
+            ),
         ]
     )
 
