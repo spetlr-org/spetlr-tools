@@ -209,7 +209,7 @@ class ExtractEncodedBodyTest(unittest.TestCase):
             str(
                 ValueError(
                     "The field Body is overwritten by the extracted json. Give extracted field new name to keep "
-                    "original body. "
+                    "original body."
                 )
             ),
         )

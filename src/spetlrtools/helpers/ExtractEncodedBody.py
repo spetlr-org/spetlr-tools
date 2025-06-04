@@ -55,7 +55,7 @@ class ExtractEncodedBody:
         if self._fields_same_name and keep_original_body:
             raise ValueError(
                 f"The field {self.json_field} is overwritten by the extracted json. Give extracted field new name to "
-                f"keep original body. "
+                f"keep original body."
             )
 
         # Step 1: extract the schema
