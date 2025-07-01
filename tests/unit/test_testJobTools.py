@@ -133,6 +133,7 @@ class JobSumitToolTest(unittest.TestCase):
             tasks=[
                 jobs.RunTask(
                     task_key="yo_momma",
+                    attempt_number=1,
                     state=jobs.RunState(
                         life_cycle_state=jobs.RunLifeCycleState.TERMINATED,
                         result_state=jobs.RunResultState.SUCCESS,
