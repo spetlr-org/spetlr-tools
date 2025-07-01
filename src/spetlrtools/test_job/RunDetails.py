@@ -37,4 +37,4 @@ class RunDetails:
 
         task_id = task.run_id
         output = self._db.get_run_output(task_id)
-        return output.logs
+        return output.logs or task.status.termination_details.message
