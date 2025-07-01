@@ -33,7 +33,7 @@ class RunDetails:
         # this allows fetch to succeed in case a "repair" fixed a transient task failure
         tasks_for_key = (t for t in self.details.tasks if t.task_key == task_key)
         # sort by negative attempt number
-        task = sorted(tasks_for_key,key=lambda t:-t.attempt_number)[0]
+        task = sorted(tasks_for_key, key=lambda t: -t.attempt_number)[0]
 
         task_id = task.run_id
         output = self._db.get_run_output(task_id)
