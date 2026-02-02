@@ -2,7 +2,7 @@ import base64
 import datetime
 import shutil
 from dataclasses import dataclass
-from pathlib import Path, PosixPath
+from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing.io import BinaryIO
 
@@ -58,7 +58,7 @@ class RemoteLocation:
         self._dbwsc = DbCli().get_client()
         self.me = self._dbwsc.current_user.me().user_name
         self.remote_home_to_base = ""
-        self.remote_home = PosixPath()
+        self.remote_home = PurePosixPath()
 
     def add_local_path(self, source: str, dir: str = None) -> str:
         """Add a source file to the target work area under a certain directory.
@@ -134,7 +134,7 @@ class WorkspaceLocation(RemoteLocation):
     def __init__(self, stage_area: str):
         super().__init__(stage_area)
         self.remote_home_to_base = f".spetlr/test/{self.date}"
-        self.remote_home = PosixPath(f"/Workspace/Users/{self.me}")
+        self.remote_home = PurePosixPath(f"/Workspace/Users/{self.me}")
 
     def remote_base(self) -> str:
         return str(self.remote_home / self.remote_home_to_base)
@@ -156,7 +156,7 @@ class DbfsLocation(RemoteLocation):
         super().__init__(stage_area)
         self.date = self.date.replace(":", ".")
         self.remote_home_to_base = f"spetlr/test/{self.me}/{self.date}"
-        self.remote_home = PosixPath("dbfs:/")
+        self.remote_home = PurePosixPath("dbfs:/")
 
     def remote_base(self) -> str:
         return str(self.remote_home / self.remote_home_to_base)

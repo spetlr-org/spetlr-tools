@@ -43,7 +43,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from pathlib import Path, PosixPath
+from pathlib import Path
 from typing import Dict, List, Union
 from typing.io import IO
 
@@ -230,10 +230,10 @@ def submit_main(args):
     )
 
 
-def verify_and_resolve_task(test_path: str, task: Union[str, PosixPath]):
-    test_archive = PosixPath(test_path).resolve().absolute()
+def verify_and_resolve_task(test_path: str, task: Union[str, Path]):
+    test_archive = Path(test_path).resolve().absolute()
 
-    task_path = PosixPath(task)
+    task_path = Path(task)
     if not task_path.is_absolute():
         task_path = (test_archive.parent / task_path).resolve().absolute()
 
@@ -257,7 +257,7 @@ def discover_job_tasks(test_path: str, folder: str):
     Returns a list of strings with the subfolders to process.
     """
 
-    test_archive_parent = PosixPath(test_path).resolve().absolute().parent
+    test_archive_parent = Path(test_path).resolve().absolute().parent
 
     subfolders = [
         verify_and_resolve_task(test_path, x)
