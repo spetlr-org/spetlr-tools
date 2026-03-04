@@ -88,7 +88,7 @@ class JobSumitToolTest(unittest.TestCase):
     def test_submit(self):
         submit(
             test_path="tests/",
-            tasks=["tests/unit/"],
+            cluster_tasks=["tests/unit/"],
             cluster={"dummy": "value"},
             wheels="dist/*.whl",
             upload_to="dbfs",
@@ -152,13 +152,11 @@ class JobSumitToolTest(unittest.TestCase):
         out = f.getvalue()
         self.assertEquals(
             out,
-            dedent(
-                """\
+            dedent("""\
             Job details: https://url.to.run
             Overall state: SUCCESS | Task states: SUCCESS: 1
             Getting stdout for yo_momma
             Here be Dragons!!
             Run result SUCCESS!
-            """
-            ),
+            """),
         )

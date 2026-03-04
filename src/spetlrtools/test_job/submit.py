@@ -1,21 +1,34 @@
 """
-usage: spetlr-test-job submit [-h] [--dry-run] [--wheels WHEELS] --tests TESTS [--task TASK] [--tasks-from TASKS_FROM] (--cluster CLUSTER | --cluster-file CLUSTER_FILE)
-                              [--sparklibs SPARKLIBS | --sparklibs-file SPARKLIBS_FILE] [--requirement REQUIREMENT | --requirements-file REQUIREMENTS_FILE] [--main-script MAIN_SCRIPT] [--pytest-args PYTEST_ARGS]
-                              [--out-json OUT_JSON] [--wait-for-job]
+usage: spetlr-test-job submit [-h] [--dry-run] [--wheels WHEELS] [--extras-require EXTRAS_REQUIRE] --tests TESTS [--task TASK] [--tasks-from TASKS_FROM]
+                              [--serverless-task SERVERLESS_TASK] [--serverless-tasks-from SERVERLESS_TASKS_FROM] [--cluster CLUSTER | --cluster-file CLUSTER_FILE]
+                              [--environment ENVIRONMENT | --environment-file ENVIRONMENT_FILE] [--sparklibs SPARKLIBS | --sparklibs-file SPARKLIBS_FILE]
+                              [--requirement REQUIREMENT | --requirements-file REQUIREMENTS_FILE] [--main-script MAIN_SCRIPT] [--pytest-args PYTEST_ARGS] [--out-json OUT_JSON]
+                              [--upload-to {workspace,dbfs}] [--wait-for-job]
 
 Run Test Cases on databricks cluster.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --dry-run             Don't do anything, only report
   --wheels WHEELS       The glob paths of all wheels under test.
+  --extras-require EXTRAS_REQUIRE
+                        The if given, the wheel will be installed with this like wheel[extras_require]. Used for test dependencies in *serverless only*.
   --tests TESTS         Location of the tests folder. Will be sent to databricks as a whole.
-  --task TASK           Single Test file or folder to execute.
-  --tasks-from TASKS_FROM
-                        path in test archive where each subfolder becomes a task.
+  --task TASK, --cluster-task TASK
+                        Single Test file or folder to execute on a job cluster.
+  --tasks-from TASKS_FROM, --cluster-tasks-from TASKS_FROM
+                        path in test archive where each subfolder becomes a task to execute on a job cluster.
+  --serverless-task SERVERLESS_TASK
+                        Single Test file or folder to execute serverless.
+  --serverless-tasks-from SERVERLESS_TASKS_FROM
+                        path in test archive where each subfolder becomes a serverless task.
   --cluster CLUSTER     JSON document describing the cluster setup.
   --cluster-file CLUSTER_FILE
                         File with JSON document describing the cluster setup.
+  --environment ENVIRONMENT
+                        JSON document describing the serverless environment setup.
+  --environment-file ENVIRONMENT_FILE
+                        File with JSON document describing the serverless environment setup.
   --sparklibs SPARKLIBS
                         JSON document describing the spark dependencies.
   --sparklibs-file SPARKLIBS_FILE
@@ -33,7 +46,8 @@ optional arguments:
                         Where to upload test job files.
   --wait-for-job        After submission, wait for result using cli v2.
 
-
+If cluster tasks are specified, the cluster description is mandatory. If serverless tasks are specified, the environment description is mandatory. At least one cluster task or
+serverless task must be specified.
 """
 
 import argparse
@@ -44,6 +58,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path, PosixPath
+from textwrap import dedent
 from typing import Dict, List, Union
 from typing.io import IO
 
@@ -73,7 +88,13 @@ def setup_submit_parser(subparsers):
     """
 
     parser: argparse.ArgumentParser = subparsers.add_parser(
-        "submit", description="Run Test Cases on databricks cluster."
+        "submit",
+        description="Run Test Cases on databricks cluster.",
+        epilog=dedent("""\
+        If cluster tasks are specified, the cluster description is mandatory.
+        If serverless tasks are specified, the environment description is mandatory.
+        At least one cluster task or serverless task must be specified.
+        """),
     )
     parser.set_defaults(func=submit_main)
 
@@ -88,6 +109,13 @@ def setup_submit_parser(subparsers):
         help="The glob paths of all wheels under test.",
         default="dist/*.whl",
     )
+    parser.add_argument(
+        "--extras-require",
+        type=str,
+        required=False,
+        help="The if given, the wheel will be installed with this like wheel[extras_require]."
+        " Used for test dependencies in *serverless only*.",
+    )
 
     parser.add_argument(
         "--tests",
@@ -97,25 +125,55 @@ def setup_submit_parser(subparsers):
     )
 
     parser.add_argument(
-        "--task", help="Single Test file or folder to execute.", action="append"
+        "--task",
+        "--cluster-task",
+        help="Single Test file or folder to execute on a job cluster.",
+        action="append",
     )
     parser.add_argument(
         "--tasks-from",
-        help="path in test archive where each subfolder becomes a task.",
+        "--cluster-tasks-from",
+        help="path in test archive where each subfolder becomes a task to execute on a job cluster.",
+        action="append",
+    )
+
+    parser.add_argument(
+        "--serverless-task",
+        help="Single Test file or folder to execute serverless.",
+        action="append",
+    )
+    parser.add_argument(
+        "--serverless-tasks-from",
+        help="path in test archive where each subfolder becomes a serverless task.",
         action="append",
     )
 
     # cluster argument pair
-    cluster = parser.add_mutually_exclusive_group(required=True)
+    cluster = parser.add_mutually_exclusive_group(required=False)
     cluster.add_argument(
         "--cluster",
         type=str,
         help="JSON document describing the cluster setup.",
+        default=None,
     )
     cluster.add_argument(
         "--cluster-file",
         type=argparse.FileType("r"),
         help="File with JSON document describing the cluster setup.",
+    )
+
+    # environment argument pair
+    environment = parser.add_mutually_exclusive_group(required=False)
+    environment.add_argument(
+        "--environment",
+        type=str,
+        help="JSON document describing the serverless environment setup.",
+        default=None,
+    )
+    environment.add_argument(
+        "--environment-file",
+        type=argparse.FileType("r"),
+        help="File with JSON document describing the serverless environment setup.",
     )
 
     # spark libraries argument pair
@@ -187,7 +245,14 @@ def collect_arguments(args):
     # pre-process 'cluster'
     if args.cluster_file:
         args.cluster = args.cluster_file.read()
-    args.cluster = json.loads(args.cluster)
+    if args.cluster:
+        args.cluster = json.loads(args.cluster)
+
+    # pre-process 'environment'
+    if args.environment_file:
+        args.environment = args.environment_file.read()
+    if args.environment:
+        args.environment = json.loads(args.environment)
 
     # pre-process 'sparklibs'
     if args.sparklibs_file:
@@ -216,9 +281,13 @@ def submit_main(args):
     submit(
         test_path=args.tests,
         cluster=args.cluster,
+        environment=args.environment,
         wheels=args.wheels,
-        tasks=args.task,
-        tasks_from=args.tasks_from,
+        extras_require=args.extras_require,
+        cluster_tasks=args.task,  # note argument has no 's'
+        cluster_tasks_from=args.tasks_from,
+        serverless_tasks=args.serverless_task,  # note argument has no 's'
+        serverless_tasks_from=args.serverless_tasks_from,
         requirement=args.requirement,
         sparklibs=args.sparklibs,
         out_json=args.out_json,
@@ -294,10 +363,14 @@ class PoolBoy:
 
 def submit(
     test_path: str,
-    cluster: dict,
     wheels: str,
-    tasks: List[str] = None,
-    tasks_from: List[str] = None,
+    extras_require: str = None,
+    cluster: dict = None,
+    environment: dict = None,
+    cluster_tasks: List[str] = None,
+    cluster_tasks_from: List[str] = None,
+    serverless_tasks: List[str] = None,
+    serverless_tasks_from: List[str] = None,
     requirement: List[str] = None,
     sparklibs: List[dict] = None,
     out_json: IO[str] = None,
@@ -308,15 +381,25 @@ def submit(
     wait_for_job=False,
 ):
     """
-    --dry-run             Don't do anything, only report
-    --wheels WHEELS       The glob paths of all wheels under test.
+      --wheels WHEELS       The glob paths of all wheels under test.
+    --extras-require EXTRAS_REQUIRE
+                          The if given, the wheel will be installed with this like wheel[extras_require]. Used for test dependencies in *serverless only*.
     --tests TESTS         Location of the tests folder. Will be sent to databricks as a whole.
-    --task TASK           Single Test file or folder to execute.
-    --tasks-from TASKS_FROM
-                          path in test archive where each subfolder becomes a task.
+    --task TASK, --cluster-task TASK
+                          Single Test file or folder to execute on a job cluster.
+    --tasks-from TASKS_FROM, --cluster-tasks-from TASKS_FROM
+                          path in test archive where each subfolder becomes a task to execute on a job cluster.
+    --serverless-task SERVERLESS_TASK
+                          Single Test file or folder to execute serverless.
+    --serverless-tasks-from SERVERLESS_TASKS_FROM
+                          path in test archive where each subfolder becomes a serverless task.
     --cluster CLUSTER     JSON document describing the cluster setup.
     --cluster-file CLUSTER_FILE
                           File with JSON document describing the cluster setup.
+    --environment ENVIRONMENT
+                          JSON document describing the serverless environment setup.
+    --environment-file ENVIRONMENT_FILE
+                          File with JSON document describing the serverless environment setup.
     --sparklibs SPARKLIBS
                           JSON document describing the spark dependencies.
     --sparklibs-file SPARKLIBS_FILE
@@ -340,24 +423,56 @@ def submit(
         sparklibs = []
     if pytest_args is None:
         pytest_args = []
-    if tasks is None:
-        tasks = []
-    if tasks_from is None:
-        tasks_from = []
-    if not (tasks or tasks_from):
+    if cluster_tasks is None:
+        cluster_tasks = []
+    if cluster_tasks_from is None:
+        cluster_tasks_from = []
+    if serverless_tasks is None:
+        serverless_tasks = []
+    if serverless_tasks_from is None:
+        serverless_tasks_from = []
+    if not (
+        cluster_tasks or cluster_tasks_from or serverless_tasks or serverless_tasks_from
+    ):
         raise ValueError("No tasks given")
-    upload_to = upload_to.lower()
+    if cluster_tasks or cluster_tasks_from:
+        # check the structure of the cluster object
+        if not isinstance(cluster, dict):
+            raise AssertionError("invalid cluster specification")
+    if serverless_tasks or serverless_tasks_from:
+        # check the structure of the cluster object
+        if not isinstance(environment, dict):
+            raise AssertionError("invalid environment specification")
 
-    # check the structure of the cluster object
-    if not isinstance(cluster, dict):
-        raise AssertionError("invalid cluster specification")
+    upload_to = upload_to.lower()
 
     # check the structure of the sparklibs object
     if not isinstance(sparklibs, list):
         raise AssertionError("invalid sparklibs specification")
 
+    if environment is not None:
+        # serverless is being used
+        try:
+            if "dependencies" not in environment["spec"]:
+                environment["spec"]["dependencies"] = []
+        except KeyError:
+            print("ERROR: The specified environment is not of the expected structure")
+            print(dedent("""Expectation was something like:
+                {
+                  "environment_key": "myname",
+                  "spec": {
+                    "dependencies": [
+                      "spetlr>=16.4.9"
+                    ],
+                    "environment_version": "3"
+                  }
+                }"""))
+            raise
+
     for py_requirement in requirement:
         sparklibs.append({"pypi": {"package": py_requirement}})
+        if environment:
+            environment["spec"]["dependencies"].append(py_requirement)
 
     dbcli = DbCli()
 
@@ -372,21 +487,37 @@ def submit(
             raise ValueError("unsupported upload")
 
         wheels = discover_wheels(wheels, remote)
+
+        extras_require_appendix = f"[{extras_require}]" if extras_require else ""
         for wheel in wheels:
             sparklibs.append({"whl": wheel})
+            if environment:
+                environment["spec"]["dependencies"].append(
+                    wheel + extras_require_appendix
+                )
 
         prepare_archive(test_path, remote)
         main_file = prepare_main_file(remote, main_script)
 
-        resolved_tasks = [verify_and_resolve_task(test_path, task) for task in tasks]
-        for task in tasks_from:
+        resolved_tasks = [
+            verify_and_resolve_task(test_path, task) for task in cluster_tasks
+        ]
+        for task in cluster_tasks_from:
             # subtasks will be ['tests/cluster/job1', 'tests/cluster/job2'] or similar
             resolved_tasks += discover_job_tasks(test_path, task)
 
-        if dry_run:
-            print(resolved_tasks)
+        resolved_serverless_tasks = [
+            verify_and_resolve_task(test_path, task) for task in serverless_tasks
+        ]
+        for task in serverless_tasks_from:
+            # subtasks will be ['tests/cluster/job1', 'tests/cluster/job2'] or similar
+            resolved_serverless_tasks += discover_job_tasks(test_path, task)
 
-        if "instance_pool_id" in cluster:
+        if dry_run:
+            print("resolved_tasks =", resolved_tasks)
+            print("resolved_serverless_tasks =", resolved_serverless_tasks)
+
+        if resolved_tasks and "instance_pool_id" in cluster:
             cluster["instance_pool_id"] = PoolBoy().lookup(cluster["instance_pool_id"])
 
         # construct the workflow object
@@ -400,6 +531,7 @@ def submit(
                 dict(
                     task_key=task_sub,
                     libraries=sparklibs,
+                    max_retries=0,
                     spark_python_task=dict(
                         python_file=main_file,
                         parameters=[
@@ -414,6 +546,38 @@ def submit(
                         ],
                     ),
                     new_cluster=cluster,
+                )
+            )
+
+        if resolved_serverless_tasks:
+            workflow["environments"] = []
+
+        for task in resolved_serverless_tasks:
+            # construct a task name from the test task file path
+            task_sub = re.sub(r"[^a-zA-Z0-9_-]", "_", task)
+
+            task_environment = environment.copy()
+            task_environment["environment_key"] = task_sub
+            workflow["environments"].append(task_environment)
+
+            workflow["tasks"].append(
+                dict(
+                    task_key=task_sub,
+                    spark_python_task=dict(
+                        python_file=main_file,
+                        parameters=[
+                            # running in the spark python interpreter, the python __file__ variable does not
+                            # work. Hence, we need to tell the script where the test area is.
+                            f"--basedir={remote.remote_base()}",
+                            # we can actually run any part of our test suite, but some files need the full repo.
+                            # Only run tests from this folder.
+                            f"--folder={task}",
+                            # additional arguments to pass to pytest
+                            f"--pytestargs={json.dumps(pytest_args)}",
+                        ],
+                    ),
+                    max_retries=0,
+                    environment_key=task_sub,
                 )
             )
 
