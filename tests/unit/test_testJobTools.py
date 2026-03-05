@@ -108,6 +108,7 @@ class JobSumitToolTest(unittest.TestCase):
                                 "whl": "dbfs:/spetlr/test/hello@world.com/<<right about now>>/libs/dummy.whl"
                             }
                         ],
+                        "max_retries": 0,
                         "spark_python_task": {
                             "python_file": "dbfs:/spetlr/test/hello@world.com/<<right about now>>/main.py",
                             "parameters": [

@@ -1,7 +1,7 @@
 import unittest
 
 
-class JobCTest(unittest.TestCase):
+class JobATest(unittest.TestCase):
     """
     This test exists for testing spetlr-submit-test-job
     """

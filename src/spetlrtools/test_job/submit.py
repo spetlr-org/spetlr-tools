@@ -381,7 +381,7 @@ def submit(
     wait_for_job=False,
 ):
     """
-      --wheels WHEELS       The glob paths of all wheels under test.
+    --wheels WHEELS       The glob paths of all wheels under test.
     --extras-require EXTRAS_REQUIRE
                           The if given, the wheel will be installed with this like wheel[extras_require]. Used for test dependencies in *serverless only*.
     --tests TESTS         Location of the tests folder. Will be sent to databricks as a whole.
