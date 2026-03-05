@@ -1,8 +1,0 @@
-{
-  "environment_key": "foobar",
-  "spec": {
-    "dependencies": [
-    ],
-    "environment_version": "3"
-  }
-}
