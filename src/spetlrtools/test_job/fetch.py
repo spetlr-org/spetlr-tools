@@ -146,6 +146,7 @@ class TaskState:
     life_cycle_state: str
     result_state: str
     end_time: int
+    attempt_number: int
 
     @property
     def ended(self):
@@ -175,6 +176,7 @@ class TaskState:
             life_cycle_state=enumNameOrNone(task.state.life_cycle_state),
             result_state=enumNameOrNone(task.state.result_state),
             end_time=task.end_time,
+            attempt_number=int(getattr(task, "attempt_number", 0)),
         )
 
     @classmethod
@@ -187,6 +189,7 @@ class TaskState:
             life_cycle_state=enumNameOrNone(run.state.life_cycle_state),
             result_state=enumNameOrNone(run.state.result_state),
             end_time=run.end_time,
+            attempt_number=0,
         )
 
 
@@ -202,9 +205,17 @@ class MultiTaskState:
         """Create the Result state of a multiTask workflow from the json object returned
         by the databricks api."""
 
+        deduped_tasks = {}
+        for task in run.tasks:
+            state = TaskState.fromTask(task)
+            if (
+                state.task_key not in deduped_tasks
+                or state.attempt_number > deduped_tasks[state.task_key].attempt_number
+            ):
+                deduped_tasks[state.task_key] = state
         return cls(
             overall=TaskState.fromRun(run),
-            tasks=[TaskState.fromTask(task) for task in run.tasks],
+            tasks=list(deduped_tasks.values()),
         )
 
     def accumulate(self):
