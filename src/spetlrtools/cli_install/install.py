@@ -95,7 +95,9 @@ def determine_platform():
     else:
         raise Exception("Unknown system platform")
 
-    if re.match(".*64.*", details.machine):
+    if details.machine.lower() == "arm64":
+        arch = "_arm64"
+    elif re.match(".*64.*", details.machine):
         arch = "_amd64"
     else:
         arch = "_386"
@@ -124,15 +126,22 @@ def install(version: str = None, target=None):
         )
 
     with open(target, "wb") as t:
-        r = requests.get(
+        location = (
             f"{_DATABRICKS_CLI_REPO}/releases/download/v{version}/{file_name}.zip"
+        )
+        print(f"Downloading {file_name} from {location}")
+        r = requests.get(
+            location,
         )
         z = zipfile.ZipFile(io.BytesIO(r.content))
 
         (db_exe_file,) = [n for n in z.namelist() if n.startswith("databricks")]
+        print("Now installing to", target)
         t.write(z.read(db_exe_file))
 
     if not isWin():
+        print("Updating permissions to 755 for", target)
         os.chmod(target, 0o755)
 
+    print("Checking installation by running:", target, "--version")
     subprocess.run([target, "--version"])
